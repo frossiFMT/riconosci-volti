@@ -1,6 +1,6 @@
 // Cache dell'app e dei modelli: dopo la prima apertura funziona anche senza rete.
 // Quando modifichi i file, aumenta il numero di versione qui sotto.
-const CACHE = 'riconosci-volti-v1';
+const CACHE = 'riconosci-volti-v2';
 const FILES = [
   './', 'index.html', 'manifest.json', 'face-api.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',

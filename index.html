@@ -165,6 +165,9 @@ function bestMatch(desc, exclude){
 const video=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
 let facing='environment', stream=null, lastDets=[], detW=1, detH=1, fpsN=0, fpsT=performance.now(), fps=0;
 let opts=null;
+const fc=document.createElement('canvas'), fctx=fc.getContext('2d',{willReadFrequently:true});
+const FW=640; // larghezza del fotogramma passato al riconoscimento
+let lastErr='';
 
 async function loadModels(){
   try{ await faceapi.tf.setBackend('webgl'); }catch(e){}
@@ -188,15 +191,20 @@ let sheetOpen=false;
 async function detectLoop(){
   if(video.readyState>=2 && !sheetOpen){
     try{
-      const dets=await faceapi.detectAllFaces(video,opts).withFaceLandmarks().withFaceDescriptors();
-      detW=video.videoWidth; detH=video.videoHeight;
+      const vw=video.videoWidth, vh=video.videoHeight;
+      const fh=Math.round(vh*FW/vw);
+      if(fc.width!==FW||fc.height!==fh){fc.width=FW;fc.height=fh;}
+      fctx.drawImage(video,0,0,FW,fh);
+      const dets=await faceapi.detectAllFaces(fc,opts).withFaceLandmarks().withFaceDescriptors();
+      detW=FW; detH=fh; lastErr='';
       lastDets=dets.map(d=>{
         const box=d.detection.box, m=bestMatch(d.descriptor);
         return {box:{x:box.x,y:box.y,w:box.width,h:box.height}, desc:Array.from(d.descriptor), score:d.detection.score, match:m};
       });
+      if(!capture && $('msg').textContent.startsWith('Errore nel riconoscimento')) msg(null);
       if(capture) captureStep();
       fpsN++; const now=performance.now(); if(now-fpsT>1000){fps=fpsN;fpsN=0;fpsT=now;}
-    }catch(e){ console.error(e); }
+    }catch(e){ console.error(e); lastErr=(e&&e.message)||String(e); if(capture) updHud('Errore: '+lastErr); else msg('Errore nel riconoscimento: '+lastErr); }
   }
   setTimeout(detectLoop, 0);
 }
@@ -275,11 +283,12 @@ function captureStep(){
   }
   capture.target={x:d.box.x+d.box.w/2,y:d.box.y+d.box.h/2};
   capture.cur=d;
-  if(d.box.w < detW*0.12){ updHud('Avvicinati: il volto è troppo piccolo'); return; }
-  if(d.score < 0.6){ updHud('Volto poco chiaro: più luce o guarda verso la camera'); return; }
+  if(d.box.w < detW*0.10){ updHud('Avvicinati: il volto è troppo piccolo'); return; }
+  if(d.score < 0.5){ updHud('Volto poco chiaro: più luce o guarda verso la camera'); return; }
   const now=performance.now();
   if(now-capture.lastT<350) return;
-  if(capture.samples.length && capture.samples.every(x=>dist(x,d.desc)<0.06)) { updHud('Gira leggermente la testa (destra, sinistra, su, giù)'); return; }
+  const last=capture.samples[capture.samples.length-1];
+  if(last && dist(last,d.desc)<0.04 && now-capture.lastT<1000){ updHud('Gira leggermente la testa (destra, sinistra, su, giù)'); return; }
   capture.samples.push(d.desc); capture.lastT=now;
   if(!capture.thumb) capture.thumb=crop(d.box);
   updHud(capture.samples.length<SAMPLES ? `Acquisizione ${capture.samples.length}/${SAMPLES} — muovi piano la testa` : 'Fatto!');
@@ -287,7 +296,7 @@ function captureStep(){
 }
 function crop(b){
   const c=document.createElement('canvas'); c.width=c.height=160; const m=b.w*0.25;
-  c.getContext('2d').drawImage(video,b.x-m,b.y-m,b.w+2*m,b.h+2*m,0,0,160,160);
+  c.getContext('2d').drawImage(fc,b.x-m,b.y-m,b.w+2*m,b.h+2*m,0,0,160,160);
   return c.toDataURL('image/jpeg',0.8);
 }
 async function endCapture(ok){
