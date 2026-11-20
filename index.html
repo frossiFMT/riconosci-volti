@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riconosci Volti</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Riconosci">
+<meta name="theme-color" content="#000000">
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #view{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #cv{max-width:100%;max-height:100%;display:block}
+  video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  #top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(#000b,#0000);font-size:13px;pointer-events:none}
+  #top b{font-size:15px}
+  #info{opacity:.75;font-variant-numeric:tabular-nums}
+  #msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000c;padding:14px 18px;border-radius:14px;text-align:center;max-width:82%;font-size:15px;line-height:1.4}
+  #start{position:absolute;left:50%;top:60%;transform:translateX(-50%);background:#1f7a5c;padding:15px 26px;border-radius:14px;font-size:17px;border:0;color:#fff;font-weight:600}
+  #bar{background:#111;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);display:flex;gap:8px}
+  button{font:inherit;cursor:pointer}
+  .b{flex:1;background:#2a2a2a;color:#fff;border:0;border-radius:12px;padding:13px 8px;font-size:15px;font-weight:600}
+  .b.pri{background:#1f7a5c}
+  .b.red{background:#7a1f1f}
+  .b.small{flex:none;padding:10px 14px;font-size:14px}
+  /* HUD acquisizione */
+  #hud{position:absolute;left:12px;right:12px;bottom:12px;background:#000d;border-radius:16px;padding:14px;display:none;gap:10px;align-items:center}
+  #hud .t{flex:1;font-size:15px;line-height:1.35}
+  #prog{height:6px;background:#333;border-radius:3px;margin-top:8px;overflow:hidden}
+  #prog i{display:block;height:100%;width:0;background:#3ecf8e;transition:width .2s}
+  /* fogli */
+  .sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet.open{display:flex}
+  .card{background:#1a1a1a;width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)}
+  .card h2{margin:0 0 12px;font-size:19px;display:flex;justify-content:space-between;align-items:center}
+  .x{background:none;border:0;color:#aaa;font-size:24px;line-height:1;padding:4px 8px}
+  label{display:block;font-size:12px;color:#aaa;margin:12px 0 5px}
+  input,textarea{width:100%;background:#262626;border:1px solid #333;color:#fff;border-radius:10px;padding:11px;font-size:16px;font-family:inherit}
+  textarea{min-height:70px;resize:vertical}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:12px;color:#888;margin-top:5px;line-height:1.4}
+  .warn{background:#5a4210;color:#ffd98a;padding:10px;border-radius:10px;font-size:13px;margin-top:10px;display:none}
+  .thumb{width:72px;height:72px;border-radius:12px;object-fit:cover;background:#333;flex:none}
+  .head{display:flex;gap:12px;align-items:center}
+  .acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .list{display:grid;gap:8px}
+  .item{display:flex;gap:12px;align-items:center;background:#232323;border-radius:12px;padding:8px;cursor:pointer;border:0;color:#fff;text-align:left;width:100%}
+  .item .thumb{width:52px;height:52px;border-radius:10px}
+  .item .n{font-weight:600;font-size:16px}
+  .item .m{font-size:12px;color:#999;margin-top:2px}
+  .empty{color:#888;font-size:14px;padding:12px 0}
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 50px);transform:translateX(-50%);background:#1f7a5c;padding:10px 16px;border-radius:12px;font-size:14px;display:none;z-index:20}
+  .file{display:none}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="view">
+    <canvas id="cv"></canvas>
+    <video id="vid" playsinline muted autoplay></video>
+    <div id="top"><b>Riconosci Volti</b><span id="info"></span></div>
+    <div id="msg">Carico i modelli…</div>
+    <button id="start" style="display:none">Avvia telecamera</button>
+    <div id="hud">
+      <div class="t"><span id="hudT">Inquadra il volto</span><div id="prog"><i></i></div></div>
+      <button class="b small" id="hudX">Annulla</button>
+    </div>
+  </div>
+  <div id="bar">
+    <button class="b pri" id="bNew">➕ Nuova persona</button>
+    <button class="b" id="bArch">📇 Archivio</button>
+    <button class="b small" id="bFlip" title="Cambia fotocamera">🔄</button>
+  </div>
+</div>
+
+<!-- scheda persona -->
+<div class="sheet" id="shPerson"><div class="card">
+  <h2><span id="pTitle">Nuova persona</span><button class="x" data-close>×</button></h2>
+  <div class="head"><img class="thumb" id="pThumb" alt=""><div class="hint" id="pSamples"></div></div>
+  <div class="warn" id="pWarn"></div>
+  <label for="fName">Nome *</label><input id="fName" autocomplete="off">
+  <div class="two">
+    <div><label for="fBirth">Data di nascita</label><input id="fBirth" type="date"></div>
+    <div><label for="fHeight">Altezza (cm)</label><input id="fHeight" type="number" inputmode="numeric" min="40" max="250"></div>
+  </div>
+  <label for="fExtra">Altre caratteristiche</label>
+  <textarea id="fExtra" placeholder="Una per riga, ad esempio:&#10;Occhi: castani&#10;Ruolo: mungitore"></textarea>
+  <div class="hint">Scrivi "Nome: valore", una per riga: compaiono a schermo quando la persona viene riconosciuta.</div>
+  <label for="fNotes">Note</label><textarea id="fNotes"></textarea>
+  <div class="acts">
+    <button class="b pri" id="pSave">Salva</button>
+    <button class="b" id="pMore">📷 Aggiungi campioni</button>
+    <button class="b red" id="pDel">Elimina</button>
+  </div>
+</div></div>
+
+<!-- archivio -->
+<div class="sheet" id="shArch"><div class="card">
+  <h2><span>Archivio</span><button class="x" data-close>×</button></h2>
+  <div class="list" id="aList"></div>
+  <div class="acts">
+    <button class="b" id="aExp">⬆︎ Esporta</button>
+    <label class="b" style="text-align:center;margin:0;color:#fff;font-size:15px">⬇︎ Importa<input type="file" accept="application/json,.json" class="file" id="aImp"></label>
+  </div>
+  <p class="hint">I dati restano solo su questo telefono. Con Esporta salvi un file di backup o lo passi a un altro telefono, che lo carica con Importa. Registra solo persone che sono d'accordo.</p>
+</div></div>
+
+<div id="toast"></div>
+
+<script src="face-api.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const msg = t => { const m=$('msg'); if(t){m.textContent=t;m.style.display='block';} else m.style.display='none'; };
+const toast = t => { const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.style.display='none',2200); };
+
+/* ================= soglie ================= */
+const T_SURE = 0.45;   // sotto: riconosciuto con sicurezza
+const T_OK   = 0.52;   // sotto: riconosciuto
+const T_MAYBE= 0.60;   // sotto: "forse"
+const SAMPLES = 8;     // campioni presi in registrazione
+
+/* ================= archivio (IndexedDB) ================= */
+const store = {
+  db:null,
+  open(){ return new Promise((res,rej)=>{ const r=indexedDB.open('riconosci-volti',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('people',{keyPath:'id'});
+    r.onsuccess=()=>{this.db=r.result;res();}; r.onerror=()=>rej(r.error); }); },
+  tx(mode){ return this.db.transaction('people',mode).objectStore('people'); },
+  all(){ return new Promise((res,rej)=>{ const r=this.tx('readonly').getAll(); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  put(p){ return new Promise((res,rej)=>{ const r=this.tx('readwrite').put(p); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); },
+  del(id){ return new Promise((res,rej)=>{ const r=this.tx('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+};
+let people=[];
+async function reload(){ people=await store.all(); people.sort((a,b)=>a.name.localeCompare(b.name)); $('info').textContent=people.length+(people.length===1?' persona':' persone'); }
+
+function age(birth){
+  if(!birth) return null; const b=new Date(birth), n=new Date();
+  let a=n.getFullYear()-b.getFullYear(); if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate())) a--; return a>=0?a:null;
+}
+function summary(p){
+  const a=age(p.birth), parts=[];
+  if(a!=null) parts.push(a+' anni'); if(p.height) parts.push(p.height+' cm');
+  return parts.join(' · ');
+}
+function extraLines(p){ return (p.extra||'').split('\n').map(s=>s.trim()).filter(Boolean); }
+
+/* ================= confronto impronte ================= */
+function dist(a,b){ let s=0; for(let i=0;i<128;i++){const d=a[i]-b[i]; s+=d*d;} return Math.sqrt(s); }
+function bestMatch(desc, exclude){
+  let best=null, bd=9;
+  for(const p of people){ if(p.id===exclude) continue;
+    for(const d of p.descriptors){ const x=dist(desc,d); if(x<bd){bd=x;best=p;} } }
+  return {person:best, d:bd};
+}
+
+/* ================= camera e modelli ================= */
+const video=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
+let facing='environment', stream=null, lastDets=[], detW=1, detH=1, fpsN=0, fpsT=performance.now(), fps=0;
+let opts=null;
+
+async function loadModels(){
+  try{ await faceapi.tf.setBackend('webgl'); }catch(e){}
+  await faceapi.tf.ready();
+  await faceapi.nets.tinyFaceDetector.loadFromUri('models');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('models');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('models');
+  opts=new faceapi.TinyFaceDetectorOptions({inputSize:320, scoreThreshold:0.5});
+}
+async function startCamera(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}}}); }
+  catch(e){ msg('Non posso usare la fotocamera: '+(e.message||e.name)+'. Controlla il permesso in Impostazioni › Safari › Fotocamera.'); return false; }
+  video.srcObject=stream; await video.play().catch(()=>{}); return true;
+}
+
+/* ================= ciclo di riconoscimento ================= */
+let capture=null; // {target:{x,y}|null, samples:[], thumb, lastT, onDone, forId}
+let sheetOpen=false;
+
+async function detectLoop(){
+  if(video.readyState>=2 && !sheetOpen){
+    try{
+      const dets=await faceapi.detectAllFaces(video,opts).withFaceLandmarks().withFaceDescriptors();
+      detW=video.videoWidth; detH=video.videoHeight;
+      lastDets=dets.map(d=>{
+        const box=d.detection.box, m=bestMatch(d.descriptor);
+        return {box:{x:box.x,y:box.y,w:box.width,h:box.height}, desc:Array.from(d.descriptor), score:d.detection.score, match:m};
+      });
+      if(capture) captureStep();
+      fpsN++; const now=performance.now(); if(now-fpsT>1000){fps=fpsN;fpsN=0;fpsT=now;}
+    }catch(e){ console.error(e); }
+  }
+  setTimeout(detectLoop, 0);
+}
+
+function drawLoop(){
+  if(video.readyState>=2){
+    const W=video.videoWidth,H=video.videoHeight, DW=Math.min(W,720), DH=Math.round(H*DW/W);
+    if(cv.width!==DW||cv.height!==DH){cv.width=DW;cv.height=DH;}
+    const mirror=facing==='user';
+    ctx.save(); if(mirror){ctx.translate(DW,0);ctx.scale(-1,1);} ctx.drawImage(video,0,0,DW,DH); ctx.restore();
+    const s=DW/(detW||W);
+    for(const d of lastDets) drawFace(d,s,DW,DH,mirror);
+  }
+  requestAnimationFrame(drawLoop);
+}
+
+function dispBox(d,s,DW,mirror){ const b=d.box; return {x: mirror? DW-(b.x+b.w)*s : b.x*s, y:b.y*s, w:b.w*s, h:b.h*s}; }
+
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function drawFace(d,s,DW,DH,mirror){
+  const b=dispBox(d,s,DW,mirror), m=d.match, p=m.person;
+  let col='#ffffff', lines=[], title='Sconosciuto', sub='tocca per registrare';
+  if(capture){ col = isTarget(d) ? '#3ecf8e' : '#666'; title = isTarget(d)?'Acquisizione…':''; sub=''; }
+  else if(p && m.d<T_OK){ col='#3ecf8e'; title=p.name; sub=summary(p); lines=extraLines(p).slice(0,4); if(p.notes) lines.push('📝 '+p.notes.slice(0,40)+(p.notes.length>40?'…':'')); }
+  else if(p && m.d<T_MAYBE){ col='#ffb020'; title='Forse '+p.name+'?'; sub='avvicinati o guarda di fronte'; }
+  ctx.lineWidth=Math.max(2,DW/220); ctx.strokeStyle=col; rr(b.x,b.y,b.w,b.h,Math.min(14,b.w/8)); ctx.stroke();
+  if(!title) return;
+  const fs=Math.max(13,Math.min(22,DW/28)), pad=fs*0.55;
+  ctx.font=`700 ${fs}px -apple-system,system-ui,sans-serif`;
+  const rows=[[title,700,fs,'#fff']]; if(sub) rows.push([sub,500,fs*0.78,'#ccc']); lines.forEach(l=>rows.push([l,500,fs*0.78,'#eee']));
+  let w=0; for(const r of rows){ctx.font=`${r[1]} ${r[2]}px -apple-system,system-ui,sans-serif`; w=Math.max(w,ctx.measureText(r[0]).width);}
+  w=Math.min(w+pad*2, DW-8); const h=rows.reduce((a,r)=>a+r[2]*1.3,0)+pad*1.4;
+  let x=b.x+b.w/2-w/2; x=Math.max(4,Math.min(DW-w-4,x));
+  let y=b.y+b.h+8; if(y+h>DH-4) y=Math.max(4,b.y-h-8);
+  ctx.fillStyle='rgba(0,0,0,.78)'; rr(x,y,w,h,fs*0.5); ctx.fill();
+  ctx.fillStyle=col; ctx.fillRect(x,y+fs*0.4,3,h-fs*0.8);
+  let ty=y+pad*0.7; ctx.textBaseline='top';
+  for(const r of rows){ ctx.font=`${r[1]} ${r[2]}px -apple-system,system-ui,sans-serif`; ctx.fillStyle=r[3]; ctx.fillText(fit(r[0],w-pad*2),x+pad,ty); ty+=r[2]*1.3; }
+}
+function fit(t,maxW){ if(ctx.measureText(t).width<=maxW) return t; while(t.length>1&&ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; }
+
+/* tocco su un volto */
+cv.addEventListener('click',e=>{
+  if(capture) return;
+  const r=cv.getBoundingClientRect(), x=(e.clientX-r.left)*cv.width/r.width, y=(e.clientY-r.top)*cv.height/r.height;
+  const s=cv.width/(detW||1), mirror=facing==='user';
+  for(const d of lastDets){ const b=dispBox(d,s,cv.width,mirror);
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h+60){
+      const p=d.match.person;
+      if(p && d.match.d<T_OK) openPerson(p);
+      else startCapture({target:{x:d.box.x+d.box.w/2,y:d.box.y+d.box.h/2}});
+      return; } }
+});
+
+/* ================= registrazione ================= */
+function isTarget(d){ return capture && capture.cur===d; }
+function startCapture({target=null, forId=null}={}){
+  capture={target, forId, samples:[], thumb:null, lastT:0, cur:null};
+  $('hud').style.display='flex'; $('bar').style.visibility='hidden'; updHud('Inquadra il volto della persona, da vicino');
+}
+function updHud(t){ $('hudT').textContent=t; $('prog').firstChild.style.width=(capture?capture.samples.length/SAMPLES*100:0)+'%'; }
+$('hudX').onclick=()=>endCapture(false);
+
+function captureStep(){
+  if(!lastDets.length){ capture.cur=null; updHud('Nessun volto: inquadra la persona da vicino'); return; }
+  // scegli il volto: quello più vicino al punto toccato, altrimenti il più grande
+  let d;
+  if(capture.target){ d=lastDets.reduce((a,c)=>{const da=Math.hypot(a.box.x+a.box.w/2-capture.target.x,a.box.y+a.box.h/2-capture.target.y),dc=Math.hypot(c.box.x+c.box.w/2-capture.target.x,c.box.y+c.box.h/2-capture.target.y);return dc<da?c:a;}); capture.target={x:d.box.x+d.box.w/2,y:d.box.y+d.box.h/2}; }
+  else d=lastDets.reduce((a,c)=>c.box.w>a.box.w?c:a);
+  // dopo il primo campione resta agganciato alla stessa persona
+  if(capture.samples.length){
+    const near=lastDets.filter(x=>dist(x.desc,capture.samples[0])<0.5);
+    if(!near.length){ capture.cur=null; updHud('Tieni inquadrata la stessa persona'); return; }
+    d=near.reduce((a,c)=>c.box.w>a.box.w?c:a);
+  }
+  capture.target={x:d.box.x+d.box.w/2,y:d.box.y+d.box.h/2};
+  capture.cur=d;
+  if(d.box.w < detW*0.12){ updHud('Avvicinati: il volto è troppo piccolo'); return; }
+  if(d.score < 0.6){ updHud('Volto poco chiaro: più luce o guarda verso la camera'); return; }
+  const now=performance.now();
+  if(now-capture.lastT<350) return;
+  if(capture.samples.length && capture.samples.every(x=>dist(x,d.desc)<0.06)) { updHud('Gira leggermente la testa (destra, sinistra, su, giù)'); return; }
+  capture.samples.push(d.desc); capture.lastT=now;
+  if(!capture.thumb) capture.thumb=crop(d.box);
+  updHud(capture.samples.length<SAMPLES ? `Acquisizione ${capture.samples.length}/${SAMPLES} — muovi piano la testa` : 'Fatto!');
+  if(capture.samples.length>=SAMPLES) endCapture(true);
+}
+function crop(b){
+  const c=document.createElement('canvas'); c.width=c.height=160; const m=b.w*0.25;
+  c.getContext('2d').drawImage(video,b.x-m,b.y-m,b.w+2*m,b.h+2*m,0,0,160,160);
+  return c.toDataURL('image/jpeg',0.8);
+}
+async function endCapture(ok){
+  const c=capture; capture=null; $('hud').style.display='none'; $('bar').style.visibility='visible';
+  if(!ok) return;
+  if(c.forId){
+    const p=people.find(x=>x.id===c.forId); if(!p) return;
+    p.descriptors=p.descriptors.concat(c.samples).slice(-40); await store.put(p); await reload();
+    toast('Aggiunti '+c.samples.length+' campioni a '+p.name); openPerson(p); return;
+  }
+  // controllo se assomiglia a qualcuno già registrato
+  let sim=null; for(const s of c.samples){ const m=bestMatch(s); if(m.person&&m.d<T_SURE&&(!sim||m.d<sim.d)) sim=m; }
+  openPerson(null,{descriptors:c.samples, thumb:c.thumb, similar:sim});
+}
+
+/* ================= scheda persona ================= */
+let editing=null, pending=null;
+function openSheet(id){ $(id).classList.add('open'); sheetOpen=true; }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); sheetOpen=false; editing=null; pending=null; }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
+
+function openPerson(p, newData){
+  closeSheets();
+  editing=p; pending=newData||null;
+  const src=p||{};
+  $('pTitle').textContent=p?p.name:'Nuova persona';
+  $('pThumb').src=(p?p.thumb:newData.thumb)||'';
+  $('pSamples').textContent=(p?p.descriptors.length:newData.descriptors.length)+' campioni del volto in archivio. Più campioni (luce e angolazioni diverse) = riconoscimento più affidabile.';
+  $('fName').value=src.name||''; $('fBirth').value=src.birth||''; $('fHeight').value=src.height||''; $('fExtra').value=src.extra||''; $('fNotes').value=src.notes||'';
+  const w=$('pWarn');
+  if(newData&&newData.similar){ w.style.display='block'; w.textContent=`Attenzione: questo volto assomiglia molto a ${newData.similar.person.name}. Se è la stessa persona, chiudi e usa "Aggiungi campioni" dalla sua scheda.`; }
+  else w.style.display='none';
+  $('pMore').style.display=p?'block':'none'; $('pDel').style.display=p?'block':'none';
+  openSheet('shPerson');
+}
+$('pSave').onclick=async()=>{
+  const name=$('fName').value.trim(); if(!name){ $('fName').focus(); toast('Inserisci almeno il nome'); return; }
+  const data={name, birth:$('fBirth').value, height:$('fHeight').value?Number($('fHeight').value):null, extra:$('fExtra').value, notes:$('fNotes').value.trim()};
+  let p;
+  if(editing){ p=Object.assign(editing,data); }
+  else{ p=Object.assign({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), created:new Date().toISOString(), descriptors:pending.descriptors, thumb:pending.thumb},data); }
+  await store.put(p); await reload(); closeSheets(); toast('Salvato: '+p.name);
+};
+$('pMore').onclick=()=>{ const id=editing.id; closeSheets(); startCapture({forId:id}); };
+$('pDel').onclick=async()=>{
+  const b=$('pDel');
+  if(b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='Tocca ancora per confermare'; setTimeout(()=>{b.dataset.c='';b.textContent='Elimina';},3000); return; }
+  b.dataset.c=''; b.textContent='Elimina';
+  const n=editing.name; await store.del(editing.id); await reload(); closeSheets(); toast('Eliminato: '+n);
+};
+
+/* ================= archivio ================= */
+function openArchive(){
+  closeSheets();
+  const L=$('aList');
+  if(!people.length) L.innerHTML='<div class="empty">Nessuna persona registrata. Usa "Nuova persona" o tocca un volto sconosciuto.</div>';
+  else{ L.innerHTML=''; for(const p of people){ const b=document.createElement('button'); b.className='item';
+    b.innerHTML=`<img class="thumb" src="${p.thumb||''}" alt=""><div><div class="n"></div><div class="m"></div></div>`;
+    b.querySelector('.n').textContent=p.name; b.querySelector('.m').textContent=[summary(p), p.descriptors.length+' campioni'].filter(Boolean).join(' · ');
+    b.onclick=()=>openPerson(p); L.appendChild(b); } }
+  openSheet('shArch');
+}
+$('aExp').onclick=async()=>{
+  const json=JSON.stringify({app:'riconosci-volti',version:1,exported:new Date().toISOString(),people});
+  const name='archivio-volti-'+new Date().toISOString().slice(0,10)+'.json';
+  const file=new File([json],name,{type:'application/json'});
+  try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'Archivio volti'}); return; } }catch(e){ if(e.name==='AbortError') return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+};
+$('aImp').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text()); if(!data.people) throw new Error('file non valido');
+    let n=0; for(const p of data.people){ if(p.id&&p.name&&Array.isArray(p.descriptors)){ await store.put(p); n++; } }
+    await reload(); openArchive(); toast('Importate '+n+' persone');
+  }catch(err){ toast('Import non riuscito: '+err.message); }
+};
+
+/* ================= pulsanti ================= */
+$('bNew').onclick=()=>startCapture();
+$('bArch').onclick=openArchive;
+$('bFlip').onclick=async()=>{ facing=facing==='environment'?'user':'environment'; lastDets=[]; await startCamera(); };
+setInterval(()=>{ if(stream) $('info').textContent=people.length+(people.length===1?' persona':' persone')+' · '+fps+' fps'; },1000);
+
+/* ================= avvio ================= */
+async function init(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('Questo browser non dà accesso alla fotocamera. Apri la pagina in Safari tramite https.'); return; }
+  try{ await store.open(); await reload(); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }
+  catch(e){ msg('Archivio non disponibile: '+e.message); return; }
+  try{ await loadModels(); }catch(e){ console.error(e); msg('Errore nel caricare i modelli: '+(e.message||e)); return; }
+  msg('Pronto'); $('start').style.display='block';
+  $('start').onclick=async()=>{ $('start').style.display='none'; msg('Avvio la fotocamera…');
+    if(await startCamera()){ msg(null); drawLoop(); detectLoop(); } };
+}
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+init();
+})();
+</script>
+</body>
+</html>

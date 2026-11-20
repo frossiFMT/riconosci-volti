@@ -1,0 +1,16 @@
+{
+  "name": "Riconosci Volti",
+  "short_name": "Riconosci",
+  "description": "Prototipo: registra un volto con le sue caratteristiche e lo riconosce in tempo reale.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "it",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
