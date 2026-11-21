@@ -1,42 +1,52 @@
-# Riconosci Volti — prototipo
+# Riconosci Vacche — versione 3.0 (21/11/2026)
 
-Registri il volto di una persona insieme alle sue caratteristiche (nome, data di
-nascita, altezza, altre informazioni, note). Ogni volta che la inquadri, l'app la
-riconosce e mostra queste informazioni sopra il video, in tempo reale.
-
-È il banco di prova del progetto di riconoscimento delle vacche: stessa logica
-(impronta numerica di 128 valori → archivio → confronto), cambia solo il modello.
+Web app per riconoscere le singole vacche **Frisone** dal disegno del mantello.
+Registri una vacca (matricola, nome, date, note). Quando la inquadri di nuovo,
+l'app la riconosce e mostra la sua scheda sul video.
 
 ## Come si usa
-- **➕ Nuova persona**: inquadra il volto da vicino e muovi piano la testa. L'app
-  prende 8 campioni, poi apre la scheda da compilare.
-- **Tocca un volto "Sconosciuto"** sul video per registrarlo direttamente.
-- **Tocca un volto riconosciuto** per aprire e modificare la sua scheda.
-- **Aggiungi campioni** (dalla scheda): rende il riconoscimento più affidabile.
-  Conviene farlo con luce e angolazioni diverse.
-- **📇 Archivio**: elenco delle persone, più Esporta/Importa per il backup o per
-  passare l'archivio a un altro telefono.
-- **🔄**: passa dalla fotocamera posteriore a quella frontale.
+1. **➕ Nuova vacca**: inquadra il **dorso della vacca dall'alto** dentro il
+   riquadro verde e muoviti piano lungo l'animale. L'app prende 8 campioni
+   (circa 10 secondi), poi apre la scheda da compilare (la matricola è obbligatoria).
+2. **Riconoscimento**: basta inquadrare il dorso. Il riquadro diventa:
+   - **verde** con la scheda: vacca riconosciuta (confermata in almeno 3 delle ultime 5 letture);
+   - **arancione** "Forse …?": somiglianza vicina alla soglia;
+   - **bianco** "non riconosciuta": nessuna vacca dell'archivio è abbastanza simile.
+3. **Tocca la scheda verde** per aprirla e modificarla.
+4. **Aggiungi campioni** (dalla scheda): conviene farlo in giorni diversi, con luce
+   diversa e con la vacca girata nell'altro verso. È il modo più efficace per
+   migliorare il riconoscimento.
+5. **⚙️ Impostazioni**: versione, severità del riconoscimento (consigliata 0.35),
+   distanze a schermo per le prove, cambio fotocamera.
 
-Colori del riquadro: verde = riconosciuto, arancione = "forse", bianco = sconosciuto.
+## Da sapere
+- **Modello**: rete dell'Università di Bristol addestrata su Frisone riprese
+  **dall'alto** (W. Andrew et al., 2021, licenza MIT). Da altre angolazioni
+  funziona peggio. Se proprio serve un'altra angolazione, registra e riconosci
+  sempre dalla stessa.
+- **Prove fatte**: su 25 vacche di esempio (immagini pubbliche della stessa
+  università) con soglia 0.35 nessuna vacca registrata è stata scambiata con
+  un'altra. Nel 29% dei casi la singola lettura risulta "incerta", ma il voto
+  su più letture lo compensa. In una prova live simulata la vacca registrata è
+  stata riconosciuta sempre e l'altra vacca mai confusa con lei. **Sono prove
+  su immagini di esempio**: l'accuratezza vera va misurata sulle vostre vacche.
+- **Archivio**: salvato solo sul telefono (IndexedDB). Esporta/Importa per il
+  backup o per passarlo a un altro telefono. Il passaggio a Firebase è il
+  prossimo passo.
+- Il calcolo avviene tutto sul telefono (circa 0,3 s per lettura): non serve
+  la rete, dopo la prima apertura.
 
-## Pubblicazione (GitHub Pages)
-Carica tutti i file nel repository, poi Settings › Pages › Branch "main" / root.
-Apri l'indirizzo https://NOMEUTENTE.github.io/NOME-REPOSITORY/ con Safari, poi
-Condividi › Aggiungi alla schermata Home.
-
-Quando modifichi i file, aumenta la versione in `sw.js` (`riconosci-volti-v1` → `v2`),
-altrimenti il telefono continua a usare la copia in cache.
-
-## Privacy
-Archivio e foto restano solo sul telefono (IndexedDB del browser): niente viene
-inviato in rete. Registra solo persone che sono d'accordo.
-
-## Soglie (in index.html)
-- `T_OK = 0.52`: sotto questa distanza la persona è riconosciuta.
-- `T_MAYBE = 0.60`: tra 0.52 e 0.60 l'app mostra "Forse …?".
-Se confonde due persone, abbassa T_OK. Se fatica a riconoscere, aggiungi campioni.
+## Aggiornare l'app
+La versione si cambia **solo in `version.js`**: la usano sia la pagina (la
+mostra in alto) sia `sw.js` (la cache). Poi commit e push: alla riapertura
+l'iPhone scarica la versione nuova e mostra "App aggiornata alla versione …".
 
 ## Componenti
-- face-api (@vladmandic/face-api, licenza MIT): rilevamento del volto,
-  68 punti del viso e impronta a 128 valori.
+- `models/frisona_reid.onnx`: rete ResNet-50 di Bristol convertita in ONNX
+  (pesi int8, 23 MB; impronta da 128 valori). Licenza in `models/`.
+- `ort/`: ONNX Runtime Web 1.31.1 (Microsoft, MIT) per eseguire la rete nel browser.
+
+## Storico versioni
+- **3.0** (21/11/2026): riconoscimento delle vacche Frisone dal mantello; numero di versione a schermo.
+- 2.0 (20/11/2026): Riconosci Volti, correzione per Safari su iPhone.
+- 1.0 (20/11/2026): Riconosci Volti, prima versione.

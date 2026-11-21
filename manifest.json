@@ -1,7 +1,7 @@
 {
-  "name": "Riconosci Volti",
-  "short_name": "Riconosci",
-  "description": "Prototipo: registra un volto con le sue caratteristiche e lo riconosce in tempo reale.",
+  "name": "Riconosci Vacche",
+  "short_name": "Vacche",
+  "description": "Riconosce le singole vacche Frisone dal disegno del mantello e ne mostra la scheda.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
