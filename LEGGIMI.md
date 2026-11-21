@@ -1,4 +1,4 @@
-# Riconosci Vacche — versione 3.0 (21/11/2026)
+# Riconosci Vacche — versione 3.1 (21/11/2026)
 
 Web app per riconoscere le singole vacche **Frisone** dal disegno del mantello.
 Registri una vacca (matricola, nome, date, note). Quando la inquadri di nuovo,
@@ -19,6 +19,34 @@ l'app la riconosce e mostra la sua scheda sul video.
 5. **⚙️ Impostazioni**: versione, severità del riconoscimento (consigliata 0.35),
    distanze a schermo per le prove, cambio fotocamera.
 
+## Firebase (dalla versione 3.1)
+- Progetto **visionevacche**. La configurazione è in `firebase-config.js`. Se lì
+  c'è `null`, l'app torna a funzionare con l'archivio solo sul telefono.
+- All'apertura l'app chiede email e password (account creati nella console:
+  Authentication › Users). La registrazione autonoma va disattivata.
+- Collezione **`vacche`**: un documento per vacca, con id uguale alla matricola
+  in maiuscolo. Contiene la scheda, la miniatura, le impronte (`emb`, numeri a
+  32 bit in base64, 128 valori ciascuna) e i conteggi delle foto.
+- Collezione **`foto`**: un documento per foto, con la JPEG (lato lungo 1280 px,
+  massimo 900 KB) in base64 e questi campi: `matricola`, `tipo` (`dorso` |
+  `musello`), `sessione`, `ritaglio` (il riquadro del dorso o del musello in
+  pixel), `scattata`, `autore`, `versioneApp`.
+- Le foto stanno nel database (piano gratuito) e non in Cloud Storage, che
+  richiederebbe il piano Blaze.
+- Senza rete le scritture restano in coda sul telefono e partono da sole quando
+  la connessione torna (in alto compare "⬆︎ N in invio").
+- Regole di sicurezza di Firestore (Firestore › Regole):
+  ```
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+      match /{document=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+  ```
+
 ## Da sapere
 - **Modello**: rete dell'Università di Bristol addestrata su Frisone riprese
   **dall'alto** (W. Andrew et al., 2021, licenza MIT). Da altre angolazioni
@@ -30,9 +58,6 @@ l'app la riconosce e mostra la sua scheda sul video.
   su più letture lo compensa. In una prova live simulata la vacca registrata è
   stata riconosciuta sempre e l'altra vacca mai confusa con lei. **Sono prove
   su immagini di esempio**: l'accuratezza vera va misurata sulle vostre vacche.
-- **Archivio**: salvato solo sul telefono (IndexedDB). Esporta/Importa per il
-  backup o per passarlo a un altro telefono. Il passaggio a Firebase è il
-  prossimo passo.
 - Il calcolo avviene tutto sul telefono (circa 0,3 s per lettura): non serve
   la rete, dopo la prima apertura.
 
@@ -47,6 +72,7 @@ l'iPhone scarica la versione nuova e mostra "App aggiornata alla versione …".
 - `ort/`: ONNX Runtime Web 1.31.1 (Microsoft, MIT) per eseguire la rete nel browser.
 
 ## Storico versioni
+- **3.1** (21/11/2026): archivio condiviso su Firebase con accesso tramite account, invio delle foto del dorso e del musello, modalità di acquisizione per la raccolta dei dati.
 - **3.0** (21/11/2026): riconoscimento delle vacche Frisone dal mantello; numero di versione a schermo.
 - 2.0 (20/11/2026): Riconosci Volti, correzione per Safari su iPhone.
 - 1.0 (20/11/2026): Riconosci Volti, prima versione.

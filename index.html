@@ -22,7 +22,7 @@
   #top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(#000b,#0000);font-size:13px;pointer-events:none}
   #top b{font-size:15px}
   #ver{background:#1f7a5c;border-radius:6px;padding:2px 7px;font-size:12px;font-weight:700;margin-left:6px}
-  #info{opacity:.75;font-variant-numeric:tabular-nums}
+  #info{opacity:.8;font-variant-numeric:tabular-nums;text-align:right}
   #msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#000c;padding:14px 18px;border-radius:14px;text-align:center;max-width:84%;font-size:15px;line-height:1.4}
   #start{position:absolute;left:50%;top:62%;transform:translateX(-50%);background:#1f7a5c;padding:15px 26px;border-radius:14px;font-size:17px;border:0;color:#fff;font-weight:600}
   #bar{background:#111;padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);display:flex;gap:8px}
@@ -31,10 +31,12 @@
   .b.pri{background:#1f7a5c}
   .b.red{background:#7a1f1f}
   .b.small{flex:none;padding:10px 14px;font-size:14px}
-  #hud{position:absolute;left:12px;right:12px;bottom:12px;background:#000d;border-radius:16px;padding:14px;display:none;gap:10px;align-items:center}
-  #hud .t{flex:1;font-size:15px;line-height:1.35}
+  .b:disabled{opacity:.5}
+  #hud{position:absolute;left:12px;right:12px;bottom:12px;background:#000d;border-radius:16px;padding:14px;display:none;gap:10px;align-items:center;flex-wrap:wrap}
+  #hud .t{flex:1;font-size:15px;line-height:1.35;min-width:60%}
   #prog{height:6px;background:#333;border-radius:3px;margin-top:8px;overflow:hidden}
   #prog i{display:block;height:100%;width:0;background:#3ecf8e;transition:width .2s}
+  #shutter{display:none;width:100%;background:#fff;color:#000;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:700}
   .sheet{position:fixed;inset:0;background:#000a;display:none;align-items:flex-end;justify-content:center;z-index:10}
   .sheet.open{display:flex}
   .card{background:#1a1a1a;width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)}
@@ -42,26 +44,30 @@
   .x{background:none;border:0;color:#aaa;font-size:24px;line-height:1;padding:4px 8px}
   label{display:block;font-size:12px;color:#aaa;margin:12px 0 5px}
   input,textarea{width:100%;background:#262626;border:1px solid #333;color:#fff;border-radius:10px;padding:11px;font-size:16px;font-family:inherit}
+  input[readonly]{opacity:.65}
   input[type=range]{padding:0;border:0;background:none}
   textarea{min-height:70px;resize:vertical}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .hint{font-size:12px;color:#888;margin-top:5px;line-height:1.45}
   .warn{background:#5a4210;color:#ffd98a;padding:10px;border-radius:10px;font-size:13px;margin-top:10px;display:none}
+  .err{color:#ff8a8a;font-size:13px;margin-top:10px;min-height:18px}
   .thumb{width:120px;height:60px;border-radius:10px;object-fit:cover;background:#333;flex:none}
   .head{display:flex;gap:12px;align-items:center}
   .acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .acts .b{min-width:45%}
   .list{display:grid;gap:8px}
   .item{display:flex;gap:12px;align-items:center;background:#232323;border-radius:12px;padding:8px;cursor:pointer;border:0;color:#fff;text-align:left;width:100%}
   .item .thumb{width:84px;height:42px;border-radius:8px}
   .item .n{font-weight:600;font-size:16px}
   .item .m{font-size:12px;color:#999;margin-top:2px}
   .empty{color:#888;font-size:14px;padding:12px 0}
-  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 50px);transform:translateX(-50%);background:#1f7a5c;padding:10px 16px;border-radius:12px;font-size:14px;display:none;z-index:20;text-align:center}
+  #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 50px);transform:translateX(-50%);background:#1f7a5c;padding:10px 16px;border-radius:12px;font-size:14px;display:none;z-index:30;text-align:center;max-width:90%}
   .file{display:none}
   .row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px}
   .row span{font-size:14px}
   .kv{font-size:13px;color:#bbb;line-height:1.7}
   .kv b{color:#fff}
+  .big{font-size:15px;line-height:1.5;color:#ddd}
 </style>
 </head>
 <body>
@@ -75,6 +81,7 @@
     <div id="hud">
       <div class="t"><span id="hudT">Inquadra il dorso</span><div id="prog"><i></i></div></div>
       <button class="b small" id="hudX">Annulla</button>
+      <button id="shutter">📷 Scatta</button>
     </div>
   </div>
   <div id="bar">
@@ -84,39 +91,58 @@
   </div>
 </div>
 
+<!-- accesso -->
+<div class="sheet" id="shLogin"><div class="card">
+  <h2><span>Accedi</span></h2>
+  <p class="big">L'archivio delle vacche è condiviso su Firebase. Entra con l'email e la password che hai ricevuto: serve solo la prima volta.</p>
+  <label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" autocapitalize="off">
+  <label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password">
+  <div class="err" id="lErr"></div>
+  <div class="acts"><button class="b pri" id="lGo">Entra</button></div>
+</div></div>
+
 <!-- scheda vacca -->
 <div class="sheet" id="shCow"><div class="card">
   <h2><span id="cTitle">Nuova vacca</span><button class="x" data-close>×</button></h2>
   <div class="head"><img class="thumb" id="cThumb" alt=""><div class="hint" id="cSamples"></div></div>
   <div class="warn" id="cWarn"></div>
   <div class="two">
-    <div><label for="fMat">Matricola *</label><input id="fMat" autocomplete="off" placeholder="es. 112 o IT035…"></div>
+    <div><label for="fMat">Matricola *</label><input id="fMat" autocomplete="off" placeholder="come nei macchinari"></div>
     <div><label for="fName">Nome</label><input id="fName" autocomplete="off"></div>
   </div>
+  <div class="hint" id="matHint"></div>
   <div class="two">
     <div><label for="fBirth">Data di nascita</label><input id="fBirth" type="date"></div>
     <div><label for="fCalv">Ultimo parto</label><input id="fCalv" type="date"></div>
   </div>
   <label for="fExtra">Altre informazioni</label>
   <textarea id="fExtra" placeholder="Una per riga, ad esempio:&#10;Gruppo: lattazione&#10;Fecondata: 02/11/2026"></textarea>
-  <div class="hint">Scrivi "Voce: valore", una per riga: compaiono a schermo quando la vacca viene riconosciuta.</div>
   <label for="fNotes">Note</label><textarea id="fNotes" placeholder="es. trattamento in corso, latte da scartare fino al…"></textarea>
   <div class="acts">
     <button class="b pri" id="cSave">Salva</button>
-    <button class="b" id="cMore">📷 Aggiungi campioni</button>
+    <button class="b" id="cMore">📷 Altre foto del dorso</button>
+    <button class="b" id="cMuz">👃 Foto del musello</button>
     <button class="b red" id="cDel">Elimina</button>
   </div>
+</div></div>
+
+<!-- dopo il salvataggio: musello facoltativo -->
+<div class="sheet" id="shMuzAsk"><div class="card">
+  <h2><span id="mTitle">Musello</span><button class="x" data-close>×</button></h2>
+  <p class="big">Dorso registrato. Ora, se riesci, fai <b>4 foto del musello</b> da vicino (15-25 cm), dritte davanti al naso, a fuoco. È facoltativo.</p>
+  <div class="acts"><button class="b pri" id="mGo">👃 Fotografa il musello</button><button class="b" id="mSkip">Salta</button></div>
 </div></div>
 
 <!-- archivio -->
 <div class="sheet" id="shArch"><div class="card">
   <h2><span>Archivio</span><button class="x" data-close>×</button></h2>
   <div class="list" id="aList"></div>
+  <div class="acts" id="aMigr" style="display:none"><button class="b pri" id="aMigrB"></button></div>
   <div class="acts">
     <button class="b" id="aExp">⬆︎ Esporta</button>
     <label class="b" style="text-align:center;margin:0;color:#fff;font-size:15px">⬇︎ Importa<input type="file" accept="application/json,.json" class="file" id="aImp"></label>
   </div>
-  <p class="hint">L'archivio è salvato solo su questo telefono. Con Esporta crei un file di backup o lo passi a un altro telefono, che lo carica con Importa.</p>
+  <p class="hint" id="aHint"></p>
 </div></div>
 
 <!-- impostazioni -->
@@ -127,20 +153,22 @@
   <input type="range" id="sThr" min="0.25" max="0.55" step="0.01">
   <div class="hint">Più a sinistra = più severo (meno errori, ma più spesso "incerta"). Più a destra = più permissivo. Valore consigliato: 0.35.</div>
   <div class="row"><span>Mostra le distanze a schermo</span><input type="checkbox" id="sDbg" style="width:auto"></div>
-  <div class="hint">Utile per le prove: più la distanza è bassa, più la vacca inquadrata somiglia a quella in archivio.</div>
   <div class="acts"><button class="b" id="sFlip">🔄 Cambia fotocamera</button><button class="b" id="sReset">Ripristina valori</button></div>
-  <p class="hint">Modello di riconoscimento delle Frisone: Università di Bristol (W. Andrew et al., "Visual Identification of Individual Holstein-Friesian Cattle via Deep Metric Learning", licenza MIT). È stato addestrato con immagini riprese dall'alto: per i risultati migliori inquadra il dorso della vacca dall'alto.</p>
+  <div class="acts" id="sOutW" style="display:none"><button class="b red" id="sOut">Esci dall'account</button></div>
+  <p class="hint">Modello di riconoscimento delle Frisone: Università di Bristol (W. Andrew et al., "Visual Identification of Individual Holstein-Friesian Cattle via Deep Metric Learning", licenza MIT), addestrato con immagini riprese dall'alto.</p>
 </div></div>
 
 <div id="toast"></div>
 
 <script src="version.js"></script>
+<script src="firebase-config.js"></script>
+<script src="firebase-bundle.js"></script>
 <script src="ort/ort.wasm.min.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
 const msg = t => { const m=$('msg'); if(t){m.textContent=t;m.style.display='block';} else m.style.display='none'; };
-const toast = (t,ms=2400) => { const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.style.display='none',ms); };
+const toast = (t,ms=2600) => { const e=$('toast'); e.textContent=t; e.style.display='block'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.style.display='none',ms); };
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 $('ver').textContent='v'+APP_VERSION;
 
@@ -148,11 +176,13 @@ $('ver').textContent='v'+APP_VERSION;
 const settings = { thr:0.35, margin:0.06, debug:false };
 try{ Object.assign(settings, JSON.parse(localStorage.getItem('vacche-settings')||'{}')); }catch(e){}
 const saveSettings = () => { try{ localStorage.setItem('vacche-settings', JSON.stringify(settings)); }catch(e){} };
-const SAMPLES = 8;        // campioni presi in registrazione
-const GUIDE_W = 0.88;     // larghezza del riquadro guida (frazione dell'immagine)
-const GUIDE_AR = 2.0;     // rapporto larghezza/altezza del riquadro (dorso visto dall'alto)
+const SAMPLES = 8;        // campioni del dorso per ogni acquisizione
+const MUZZLE_SUGGESTED = 4;
+const GUIDE_W = 0.88;     // larghezza del riquadro del dorso
+const GUIDE_AR = 2.0;     // rapporto larghezza/altezza del riquadro del dorso
+const PHOTO_MAX = 1280;   // lato lungo delle foto salvate su Firebase
 
-/* ================= archivio (IndexedDB) ================= */
+/* ================= archivio locale (IndexedDB) ================= */
 const store = {
   db:null,
   open(){ return new Promise((res,rej)=>{ const r=indexedDB.open('riconosci-vacche',1);
@@ -163,14 +193,90 @@ const store = {
   put(c){ return new Promise((res,rej)=>{ const r=this.tx('readwrite').put(c); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); },
   del(id){ return new Promise((res,rej)=>{ const r=this.tx('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
 };
+
+/* ================= Firebase ================= */
+const cloud = { on:false, app:null, auth:null, db:null, user:null, pending:0, fromCache:true, unsub:null, firstSnap:null };
+function b64FromBytes(u8){ let s=''; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); }
+function bytesFromB64(b){ const s=atob(b), u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+function encEmb(list){ const f=new Float32Array(list.length*128); list.forEach((a,i)=>f.set(a,i*128)); return b64FromBytes(new Uint8Array(f.buffer)); }
+function decEmb(str){ if(!str) return []; const f=new Float32Array(bytesFromB64(str).buffer), out=[]; for(let i=0;i+128<=f.length;i+=128) out.push(Array.from(f.subarray(i,i+128))); return out; }
+const matKey = m => String(m).trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'_');
+
+function initCloud(){
+  if(!window.FIREBASE_CONFIG || !window.FB) return false;
+  try{
+    cloud.app=FB.initializeApp(window.FIREBASE_CONFIG);
+    cloud.auth=FB.getAuth(cloud.app);
+    try{ cloud.db=FB.initializeFirestore(cloud.app,{localCache:FB.persistentLocalCache({tabManager:FB.persistentSingleTabManager()})}); }
+    catch(e){ console.warn('cache locale non disponibile',e); cloud.db=FB.initializeFirestore(cloud.app,{}); }
+    cloud.on=true; return true;
+  }catch(e){ console.error(e); toast('Firebase non disponibile: '+e.message,4000); return false; }
+}
+function waitAuth(){ return new Promise(res=>{ let first=true; FB.onAuthStateChanged(cloud.auth,u=>{ cloud.user=u; if(first){first=false;res(u);} else if(!u) location.reload(); }); }); }
+function login(){
+  return new Promise(res=>{
+    openSheet('shLogin',true); $('lErr').textContent='';
+    $('lGo').onclick=async()=>{
+      const em=$('lEmail').value.trim(), pw=$('lPass').value;
+      if(!em||!pw){ $('lErr').textContent='Inserisci email e password'; return; }
+      $('lGo').disabled=true; $('lErr').textContent='Accesso in corso…';
+      try{ try{ await FB.setPersistence(cloud.auth,FB.indexedDBLocalPersistence); }catch(e){}
+        const r=await FB.signInWithEmailAndPassword(cloud.auth,em,pw); cloud.user=r.user; closeSheets(true); res(r.user); }
+      catch(e){ const c=e.code||'';
+        $('lErr').textContent = c.includes('network')? 'Serve la connessione a internet per il primo accesso'
+          : (c.includes('invalid')||c.includes('wrong-password')||c.includes('user-not-found'))? 'Email o password non corrette'
+          : c.includes('too-many')? 'Troppi tentativi: riprova tra qualche minuto' : 'Accesso non riuscito ('+(c||e.message)+')'; }
+      finally{ $('lGo').disabled=false; }
+    };
+  });
+}
+function track(p, what){
+  cloud.pending++; updInfo();
+  return p.then(r=>r).catch(e=>{ console.error(e); toast('Invio non riuscito ('+what+'): '+(e.code||e.message),4000); throw e; })
+          .finally(()=>{ cloud.pending--; updInfo(); });
+}
+function subscribeCows(){
+  return new Promise(res=>{
+    let first=true;
+    cloud.unsub=FB.onSnapshot(FB.collection(cloud.db,'vacche'),{includeMetadataChanges:true},snap=>{
+      cloud.fromCache=snap.metadata.fromCache;
+      setCows(snap.docs.map(d=>fromCloud(d.id,d.data())));
+      updInfo(); if(first){first=false;res();}
+    },err=>{ console.error(err); toast('Lettura archivio non riuscita: '+(err.code||err.message),4000); if(first){first=false;res();} });
+  });
+}
+function fromCloud(id,d){ return {id, matricola:d.matricola, nome:d.nome||'', nascita:d.nascita||'', parto:d.parto||'', extra:d.extra||'', note:d.note||'',
+  thumb:d.thumb||'', emb:decEmb(d.emb), nFotoDorso:d.nFotoDorso||0, nFotoMusello:d.nFotoMusello||0, cloud:true}; }
+function toCloud(c){ return {matricola:c.matricola, nome:c.nome||'', nascita:c.nascita||'', parto:c.parto||'', extra:c.extra||'', note:c.note||'',
+  thumb:c.thumb||'', emb:encEmb(c.emb), nEmb:c.emb.length, aggiornato:FB.serverTimestamp(), aggiornatoDa:cloud.user?cloud.user.email:'', versioneApp:APP_VERSION}; }
+async function uploadPhotos(c, photos, tipo, sessione){
+  if(!cloud.on||!cloud.user||!photos.length) return;
+  const col=FB.collection(cloud.db,'foto');
+  photos.forEach((p,i)=>{
+    track(FB.addDoc(col,{matricola:c.matricola, vacca:c.id, tipo, sessione, ordine:i+1, jpeg:p.jpeg, w:p.w, h:p.h, ritaglio:p.crop||null,
+      scattata:p.t, caricata:FB.serverTimestamp(), autore:cloud.user.email, versioneApp:APP_VERSION}),'foto').catch(()=>{});
+  });
+  const field = tipo==='musello'?'nFotoMusello':'nFotoDorso';
+  track(FB.updateDoc(FB.doc(cloud.db,'vacche',c.id),{[field]:FB.increment(photos.length)}),'conteggio').catch(()=>{});
+}
+
+/* ================= archivio in memoria ================= */
 let cows=[];
-async function reload(){
-  cows=await store.all();
-  cows.sort((a,b)=>String(a.matricola).localeCompare(String(b.matricola),'it',{numeric:true}));
+function setCows(list){
+  cows=list; cows.sort((a,b)=>String(a.matricola).localeCompare(String(b.matricola),'it',{numeric:true}));
   cows.forEach(c=>{ c._emb=c.emb.map(e=>Float32Array.from(e)); });
 }
+async function reloadLocal(){ setCows(await store.all()); }
+async function saveCow(c){
+  if(cloud.user){ track(FB.setDoc(FB.doc(cloud.db,'vacche',c.id),toCloud(c),{merge:true}),'scheda').catch(()=>{}); }
+  else { await store.put(stripRuntime(c)); await reloadLocal(); }
+}
+async function deleteCow(c){
+  if(cloud.user){ track(FB.deleteDoc(FB.doc(cloud.db,'vacche',c.id)),'eliminazione').catch(()=>{}); }
+  else { await store.del(c.id); await reloadLocal(); }
+}
+function stripRuntime(c){ const o=Object.assign({},c); delete o._emb; delete o.cloud; return o; }
 const label = c => 'Vacca '+c.matricola+(c.nome?' – '+c.nome:'');
-
 function ageText(d){
   if(!d) return ''; const b=new Date(d), n=new Date();
   let m=(n.getFullYear()-b.getFullYear())*12+(n.getMonth()-b.getMonth()); if(n.getDate()<b.getDate()) m--;
@@ -180,19 +286,23 @@ function ageText(d){
 function dim(d){ if(!d) return ''; const g=Math.floor((Date.now()-new Date(d).getTime())/86400000); return g>=0? g+' giorni dal parto':''; }
 function summary(c){ return [ageText(c.nascita), dim(c.parto)].filter(Boolean).join(' · '); }
 function extraLines(c){ return (c.extra||'').split('\n').map(s=>s.trim()).filter(Boolean); }
+function updInfo(){
+  let t=cows.length+(cows.length===1?' vacca':' vacche');
+  if(cloud.user){ t+= cloud.pending? ' · ⬆︎ '+cloud.pending+' in invio' : (navigator.onLine? ' · ☁︎ sincronizzato' : ' · senza rete'); }
+  $('info').textContent=t;
+}
+window.addEventListener('online',updInfo); window.addEventListener('offline',updInfo);
 
 /* ================= modello ================= */
 let session=null, inferMs=0;
 const pc=document.createElement('canvas'); pc.width=pc.height=224;
 const pctx=pc.getContext('2d',{willReadFrequently:true});
-
 async function loadModel(){
   ort.env.wasm.wasmPaths = new URL('ort/', location.href).href;
   ort.env.wasm.numThreads = 1;
-  ort.env.wasm.proxy = true;   // il calcolo gira in un worker: lo schermo resta fluido
+  ort.env.wasm.proxy = true;
   session = await ort.InferenceSession.create('models/frisona_reid.onnx', {executionProviders:['wasm'], graphOptimizationLevel:'all'});
 }
-// Prepara il ritaglio come nell'addestramento: lato lungo = 224, centrato su sfondo nero, valori 0..255
 function prepare(src, sx,sy,sw,sh, rotate){
   pctx.setTransform(1,0,0,1,0,0); pctx.fillStyle='#000'; pctx.fillRect(0,0,224,224);
   const r=224/Math.max(sw,sh), dw=Math.max(1,Math.floor(sw*r)), dh=Math.max(1,Math.floor(sh*r));
@@ -213,15 +323,14 @@ async function embed(tensorData){
 }
 function dist(a,b){ let s=0; for(let i=0;i<128;i++){const d=a[i]-b[i]; s+=d*d;} return Math.sqrt(s); }
 function rank(e, excludeId){
-  const r=[]; for(const c of cows){ if(c.id===excludeId) continue; let m=9; for(const x of c._emb){ const d=dist(e,x); if(d<m) m=d; } r.push({cow:c,d:m}); }
+  const r=[]; for(const c of cows){ if(c.id===excludeId||!c._emb.length) continue; let m=9; for(const x of c._emb){ const d=dist(e,x); if(d<m) m=d; } r.push({cow:c,d:m}); }
   return r.sort((a,b)=>a.d-b.d);
 }
 
 /* ================= qualità del ritaglio ================= */
-// Controlla che nel riquadro ci sia un mantello bianco e nero, a fuoco e fermo
 const qc=document.createElement('canvas'); qc.width=64; qc.height=32; const qctx=qc.getContext('2d',{willReadFrequently:true});
 let prevQ=null;
-function quality(src,sx,sy,sw,sh){
+function quality(src,sx,sy,sw,sh,needPattern=true){
   qctx.drawImage(src,sx,sy,sw,sh,0,0,64,32);
   const d=qctx.getImageData(0,0,64,32).data, g=new Float32Array(64*32);
   let dark=0,bright=0;
@@ -230,8 +339,9 @@ function quality(src,sx,sy,sw,sh){
   lap/=62*30;
   let motion=0; if(prevQ){ for(let i=0;i<g.length;i++) motion+=Math.abs(g[i]-prevQ[i]); motion/=g.length; } prevQ=g;
   const n=g.length, res={dark:dark/n, bright:bright/n, sharp:lap, motion};
-  res.ok = res.dark>0.08 && res.bright>0.08 && res.sharp>6 && motion<28;
-  res.why = res.dark<=0.08||res.bright<=0.08 ? 'Inquadra il dorso: nel riquadro serve il mantello bianco e nero'
+  const pat = !needPattern || (res.dark>0.08 && res.bright>0.08);
+  res.ok = pat && res.sharp>6 && motion<28;
+  res.why = !pat ? 'Inquadra il dorso: nel riquadro serve il mantello bianco e nero'
           : res.sharp<=6 ? 'Immagine poco nitida: avvicinati o aumenta la luce'
           : motion>=28 ? 'Tieni fermo il telefono' : '';
   return res;
@@ -242,23 +352,30 @@ const video=$('vid'), cv=$('cv'), ctx=cv.getContext('2d');
 let facing='environment', stream=null, sheetOpen=false;
 async function startCamera(){
   if(stream) stream.getTracks().forEach(t=>t.stop());
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}}}); }
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1920},height:{ideal:1080}}}); }
   catch(e){ msg('Non posso usare la fotocamera: '+(e.message||e.name)+'. Controlla il permesso in Impostazioni › Safari › Fotocamera.'); return false; }
   video.srcObject=stream; await video.play().catch(()=>{}); return true;
 }
-function guideRect(W,H){ // in coordinate del video
-  let w=W*GUIDE_W, h=w/GUIDE_AR; if(h>H*0.8){ h=H*0.8; w=h*GUIDE_AR; }
-  return {x:(W-w)/2, y:(H-h)/2, w, h};
+function guideRect(W,H){ let w=W*GUIDE_W, h=w/GUIDE_AR; if(h>H*0.8){ h=H*0.8; w=h*GUIDE_AR; } return {x:(W-w)/2, y:(H-h)/2, w, h}; }
+function muzzleRect(W,H){ const s=Math.min(W,H)*0.7; return {x:(W-s)/2, y:(H-s)/2, w:s, h:s}; }
+// fotogramma intero ridotto a PHOTO_MAX, in JPEG (con il riquadro riportato in scala)
+function grabPhoto(rect){
+  const W=video.videoWidth,H=video.videoHeight, r=Math.min(1,PHOTO_MAX/Math.max(W,H));
+  const c=document.createElement('canvas'); c.width=Math.round(W*r); c.height=Math.round(H*r);
+  c.getContext('2d').drawImage(video,0,0,c.width,c.height);
+  let q=0.85, jpeg=c.toDataURL('image/jpeg',q);
+  while(jpeg.length>900000 && q>0.4){ q-=0.15; jpeg=c.toDataURL('image/jpeg',q); }
+  return {jpeg, w:c.width, h:c.height, t:new Date().toISOString(), crop: rect? {x:Math.round(rect.x*r),y:Math.round(rect.y*r),w:Math.round(rect.w*r),h:Math.round(rect.h*r)} : null};
 }
 
-/* ================= stato del riconoscimento ================= */
-let state={kind:'idle', text:'', cow:null, d:null, second:null, why:''};
-const votes=[];  // ultime decisioni, per una risposta stabile
-let capture=null;
-
+/* ================= riconoscimento ================= */
+let state={kind:'idle'};
+const votes=[];
+let capture=null;   // acquisizione del dorso in corso
+let muzzle=null;    // foto del musello in corso
 async function recognitionLoop(){
   while(true){
-    if(session && video.readyState>=2 && !sheetOpen){
+    if(session && video.readyState>=2 && !sheetOpen && !muzzle){
       try{ await step(); }catch(e){ console.error(e); state={kind:'error',text:'Errore: '+(e.message||e)}; await sleep(500); }
     }
     await sleep(capture?120:60);
@@ -269,8 +386,8 @@ async function step(){
   const q=quality(video,g.x,g.y,g.w,g.h);
   if(capture) return captureStep(q,g);
   if(!q.ok){ state={kind:'hint', why:q.why}; votes.push(null); if(votes.length>5) votes.shift(); return; }
+  if(!cows.some(c=>c._emb.length)){ state={kind:'empty'}; return; }
   const e=await embed(prepare(video,g.x,g.y,g.w,g.h,false));
-  if(!cows.length){ state={kind:'empty'}; return; }
   const r=rank(e), b=r[0], s=r[1];
   const margin = s? s.d-b.d : 1;
   let dec=null;
@@ -278,18 +395,19 @@ async function step(){
   votes.push(dec); if(votes.length>5) votes.shift();
   const cnt={}; votes.forEach(v=>{ if(v) cnt[v]=(cnt[v]||0)+1; });
   const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
-  if(top && top[1]>=3){ const c=cows.find(x=>x.id===top[0]); state={kind:'ok', cow:c, d:b.d, second:s&&s.d}; }
-  else if(b.d<settings.thr+0.05){ state={kind:'maybe', cow:b.cow, d:b.d, second:s&&s.d}; }
+  if(top && top[1]>=3){ const c=cows.find(x=>x.id===top[0]); if(c){ state={kind:'ok', cow:c, d:b.d, second:s&&s.d}; return; } }
+  if(b.d<settings.thr+0.05) state={kind:'maybe', cow:b.cow, d:b.d, second:s&&s.d};
   else state={kind:'unknown', d:b.d, cow:b.cow};
 }
 
-/* ================= registrazione ================= */
+/* ================= acquisizione del dorso ================= */
 function startCapture(forId=null){
-  capture={forId, samples:[], thumb:null, lastT:0};
-  $('hud').style.display='flex'; $('bar').style.visibility='hidden'; updHud('Inquadra il dorso della vacca dall\'alto, dentro il riquadro');
+  capture={forId, samples:[], photos:[], thumb:null, lastT:0, sessione:new Date().toISOString().slice(0,16).replace('T',' ')+' '+Math.random().toString(36).slice(2,6)};
+  showHud(true,false); updHud('Inquadra il dorso della vacca dall\'alto, dentro il riquadro');
 }
-function updHud(t){ $('hudT').textContent=t; $('prog').firstChild.style.width=(capture?capture.samples.length/SAMPLES*100:0)+'%'; }
-$('hudX').onclick=()=>endCapture(false);
+function showHud(on,shutter){ $('hud').style.display=on?'flex':'none'; $('bar').style.visibility=on?'hidden':'visible'; $('shutter').style.display=shutter?'block':'none'; }
+function updHud(t,frac){ $('hudT').textContent=t; const f= frac!=null? frac : (capture?capture.samples.length/SAMPLES:0); $('prog').firstChild.style.width=Math.min(100,f*100)+'%'; }
+$('hudX').onclick=()=>{ if(muzzle) endMuzzle(); else endCapture(false); };
 async function captureStep(q,g){
   if(!q.ok){ updHud(q.why); return; }
   const now=performance.now(); if(now-capture.lastT<450) return;
@@ -298,27 +416,47 @@ async function captureStep(q,g){
   const last=capture.samples.length? capture.samples[capture.samples.length-1].e : null;
   if(last && dist(last,e)<0.05 && now-capture.lastT<1500){ updHud('Spostati un poco lungo la vacca o cambia leggermente angolo'); return; }
   if(capture.samples.length && dist(capture.samples[0].e,e)>0.9){ updHud('Sembra un\'altra vacca: tieni inquadrata la stessa'); return; }
-  const er=await embed(prepare(video,g.x,g.y,g.w,g.h,true)); // stessa vista ruotata di 180°: vacca girata dall'altra parte
+  const photo = cloud.user ? grabPhoto(g) : null;
+  const er=await embed(prepare(video,g.x,g.y,g.w,g.h,true));
   if(!capture) return;
-  capture.samples.push({e, er}); capture.lastT=performance.now();
+  capture.samples.push({e, er}); if(photo) capture.photos.push(photo); capture.lastT=performance.now();
   if(!capture.thumb){ const c=document.createElement('canvas'); c.width=240; c.height=120; c.getContext('2d').drawImage(video,g.x,g.y,g.w,g.h,0,0,240,120); capture.thumb=c.toDataURL('image/jpeg',0.8); }
-  updHud(capture.samples.length<SAMPLES ? `Campione ${capture.samples.length}/${SAMPLES} — muoviti piano lungo la vacca` : 'Fatto!');
+  updHud(capture.samples.length<SAMPLES ? `Foto ${capture.samples.length}/${SAMPLES} — muoviti piano lungo la vacca` : 'Fatto!');
   if(capture.samples.length>=SAMPLES) endCapture(true);
 }
 async function endCapture(ok){
-  const c=capture; capture=null; votes.length=0; $('hud').style.display='none'; $('bar').style.visibility='visible';
+  const c=capture; capture=null; votes.length=0; showHud(false,false);
   if(!ok) return;
   const embs=[]; c.samples.forEach(s=>{ embs.push(Array.from(s.e)); embs.push(Array.from(s.er)); });
   if(c.forId){
     const cow=cows.find(x=>x.id===c.forId); if(!cow) return;
-    cow.emb=cow.emb.concat(embs).slice(-80); cow.updated=new Date().toISOString(); delete cow._emb;
-    await store.put(stripRuntime(cow)); await reload(); toast('Aggiunti '+c.samples.length+' campioni a '+label(cow)); openCow(cows.find(x=>x.id===c.forId)); return;
+    const upd=Object.assign(stripRuntime(cow),{emb:cow.emb.concat(embs).slice(-96)});
+    await saveCow(upd); uploadPhotos(upd,c.photos,'dorso',c.sessione);
+    toast('Aggiunte '+c.samples.length+' foto a '+label(cow)); return;
   }
-  // somiglia a una vacca già registrata?
   let sim=null; for(const s of c.samples){ const r=rank(s.e)[0]; if(r && r.d<settings.thr && (!sim||r.d<sim.d)) sim=r; }
-  openCow(null,{emb:embs, thumb:c.thumb, similar:sim});
+  openCow(null,{emb:embs, thumb:c.thumb, photos:c.photos, sessione:c.sessione, similar:sim});
 }
-function stripRuntime(c){ const o=Object.assign({},c); delete o._emb; return o; }
+
+/* ================= foto del musello ================= */
+function startMuzzle(cow){
+  muzzle={cow, n:0, sessione:new Date().toISOString().slice(0,16).replace('T',' ')+' '+Math.random().toString(36).slice(2,6)};
+  showHud(true,true); $('hudX').textContent='Fine';
+  updHud(`Musello di ${label(cow)}: avvicinati a 15-25 cm, naso dentro il quadrato, poi Scatta`,0);
+}
+$('shutter').onclick=()=>{
+  if(!muzzle||video.readyState<2) return;
+  const W=video.videoWidth,H=video.videoHeight, r=muzzleRect(W,H);
+  const q=quality(video,r.x,r.y,r.w,r.h,false);
+  if(q.sharp<4){ toast('Foto mossa o sfocata: tieni fermo e riprova'); return; }
+  const p=grabPhoto(r); muzzle.n++;
+  uploadPhotos(muzzle.cow,[p],'musello',muzzle.sessione);
+  updHud(muzzle.n<MUZZLE_SUGGESTED? `Foto ${muzzle.n}/${MUZZLE_SUGGESTED} del musello salvata. Allontanati e riavvicinati, poi Scatta`
+                                   : `${muzzle.n} foto del musello salvate. Puoi farne altre o premere Fine`, muzzle.n/MUZZLE_SUGGESTED);
+  flash=performance.now();
+};
+function endMuzzle(){ const m=muzzle; muzzle=null; showHud(false,false); $('hudX').textContent='Annulla'; if(m&&m.n) toast(m.n+' foto del musello di '+label(m.cow)+' salvate'); }
+let flash=0;
 
 /* ================= disegno ================= */
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
@@ -328,14 +466,14 @@ function drawLoop(){
     const W=video.videoWidth,H=video.videoHeight, DW=Math.min(W,720), DH=Math.round(H*DW/W), s=DW/W;
     if(cv.width!==DW||cv.height!==DH){cv.width=DW;cv.height=DH;}
     ctx.drawImage(video,0,0,DW,DH);
-    const g=guideRect(W,H), gx=g.x*s, gy=g.y*s, gw=g.w*s, gh=g.h*s;
-    // oscura fuori dal riquadro
+    const g=muzzle? muzzleRect(W,H) : guideRect(W,H), gx=g.x*s, gy=g.y*s, gw=g.w*s, gh=g.h*s;
     ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,DW,gy); ctx.fillRect(0,gy+gh,DW,DH-gy-gh); ctx.fillRect(0,gy,gx,gh); ctx.fillRect(gx+gw,gy,DW-gx-gw,gh);
-    const st=capture?{kind:'capture'}:state;
+    const st=(capture||muzzle)?{kind:'capture'}:state;
     const col={ok:'#3ecf8e',maybe:'#ffb020',unknown:'#ffffff',capture:'#3ecf8e',error:'#ff5a5a'}[st.kind]||'#ffffffaa';
     ctx.lineWidth=Math.max(3,DW/150); ctx.strokeStyle=col; rr(gx,gy,gw,gh,14); ctx.stroke();
+    if(performance.now()-flash<180){ ctx.fillStyle='rgba(255,255,255,.6)'; ctx.fillRect(0,0,DW,DH); }
     const fs=Math.max(14,Math.min(24,DW/26));
-    if(!capture) drawCard(st,DW,DH,gx,gy,gw,gh,fs,col);
+    if(!capture&&!muzzle) drawCard(st,DW,DH,gx,gy,gw,gh,fs,col);
   }
   requestAnimationFrame(drawLoop);
 }
@@ -359,56 +497,73 @@ function drawCard(st,DW,DH,gx,gy,gw,gh,fs,col){
   let ty=y+pad*0.65; ctx.textBaseline='top';
   for(const r of rows){ ctx.font=`${r[1]} ${r[2]}px -apple-system,system-ui,sans-serif`; ctx.fillStyle=r[3]; ctx.fillText(fit(r[0],w-pad*2),x+pad,ty); ty+=r[2]*1.32; }
 }
-cv.addEventListener('click',()=>{ if(!capture && state.kind==='ok') openCow(state.cow); });
+cv.addEventListener('click',()=>{ if(!capture && !muzzle && state.kind==='ok') openCow(state.cow); });
 
 /* ================= schede ================= */
 let editing=null, pending=null;
-function openSheet(id){ $(id).classList.add('open'); sheetOpen=true; }
-function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); sheetOpen=false; editing=null; pending=null; votes.length=0; }
-document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
+function openSheet(id,locked){ $(id).classList.add('open'); sheetOpen=true; }
+function closeSheets(force){ document.querySelectorAll('.sheet').forEach(s=>{ if(s.id==='shLogin' && !force && cloud.on && !cloud.user) return; s.classList.remove('open'); });
+  sheetOpen=!!document.querySelector('.sheet.open'); editing=null; pending=null; votes.length=0; }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeSheets());
 
 function openCow(c,newData){
   closeSheets(); editing=c; pending=newData||null;
   const src=c||{};
   $('cTitle').textContent=c?label(c):'Nuova vacca';
   $('cThumb').src=(c?c.thumb:newData.thumb)||'';
-  const n=(c?c.emb.length:newData.emb.length)/2;
-  $('cSamples').textContent=Math.round(n)+' campioni in archivio. Più campioni, presi in giorni e con luce diversi, rendono il riconoscimento più affidabile.';
+  const n=Math.round((c?c.emb.length:newData.emb.length)/2);
+  $('cSamples').textContent = c && c.cloud ? `${n} campioni · ${c.nFotoDorso} foto del dorso · ${c.nFotoMusello} del musello su Firebase`
+                                           : n+' campioni in archivio';
   $('fMat').value=src.matricola||''; $('fName').value=src.nome||''; $('fBirth').value=src.nascita||''; $('fCalv').value=src.parto||'';
   $('fExtra').value=src.extra||''; $('fNotes').value=src.note||'';
+  const lockMat = !!(c && cloud.user);
+  $('fMat').readOnly=lockMat; $('matHint').textContent= lockMat? 'La matricola non si può cambiare: per correggerla elimina la vacca e registrala di nuovo.' : 'Scrivila esattamente come compare nei macchinari della stalla.';
   const w=$('cWarn');
-  if(newData&&newData.similar){ w.style.display='block'; w.textContent=`Attenzione: somiglia molto a ${label(newData.similar.cow)}. Se è la stessa vacca, chiudi e usa "Aggiungi campioni" dalla sua scheda.`; }
+  if(newData&&newData.similar){ w.style.display='block'; w.textContent=`Attenzione: somiglia molto a ${label(newData.similar.cow)}. Se è la stessa vacca, chiudi e usa "Altre foto del dorso" dalla sua scheda.`; }
   else w.style.display='none';
-  $('cMore').style.display=c?'block':'none'; $('cDel').style.display=c?'block':'none';
+  $('cMore').style.display=c?'block':'none'; $('cDel').style.display=c?'block':'none'; $('cMuz').style.display=(c&&cloud.user)?'block':'none';
   openSheet('shCow');
 }
 $('cSave').onclick=async()=>{
-  const mat=$('fMat').value.trim(); if(!mat){ $('fMat').focus(); toast('Inserisci almeno la matricola'); return; }
-  const dup=cows.find(x=>String(x.matricola).toLowerCase()===mat.toLowerCase() && (!editing||x.id!==editing.id));
-  if(dup){ toast('La matricola '+mat+' è già in archivio'); return; }
-  const data={matricola:mat, nome:$('fName').value.trim(), nascita:$('fBirth').value, parto:$('fCalv').value, extra:$('fExtra').value, note:$('fNotes').value.trim(), updated:new Date().toISOString()};
-  let c;
+  const mat=$('fMat').value.trim(); if(!mat){ $('fMat').focus(); toast('Inserisci la matricola'); return; }
+  const id = cloud.user ? matKey(mat) : (editing? editing.id : Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  const dup=cows.find(x=>(matKey(x.matricola)===matKey(mat)) && (!editing||x.id!==editing.id));
+  if(dup){ toast('La matricola '+mat+' è già in archivio: usa "Altre foto del dorso" dalla sua scheda',4000); return; }
+  const data={matricola:mat, nome:$('fName').value.trim(), nascita:$('fBirth').value, parto:$('fCalv').value, extra:$('fExtra').value, note:$('fNotes').value.trim()};
+  let c, isNew=!editing, pend=pending;
   if(editing) c=Object.assign(stripRuntime(editing),data);
-  else c=Object.assign({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), created:new Date().toISOString(), emb:pending.emb, thumb:pending.thumb},data);
-  await store.put(c); await reload(); closeSheets(); toast('Salvata: '+label(c));
+  else c=Object.assign({id, emb:pend.emb, thumb:pend.thumb, nFotoDorso:0, nFotoMusello:0},data);
+  closeSheets(); await saveCow(c);
+  if(isNew && pend.photos && pend.photos.length) uploadPhotos(c,pend.photos,'dorso',pend.sessione);
+  toast('Salvata: '+label(c));
+  if(isNew && cloud.user){ $('mTitle').textContent='Musello – '+label(c); openSheet('shMuzAsk');
+    $('mGo').onclick=()=>{ closeSheets(); startMuzzle(c); }; $('mSkip').onclick=()=>closeSheets(); }
 };
 $('cMore').onclick=()=>{ const id=editing.id; closeSheets(); startCapture(id); };
+$('cMuz').onclick=()=>{ const c=editing; closeSheets(); startMuzzle(c); };
 $('cDel').onclick=async()=>{
   const b=$('cDel');
   if(b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='Tocca ancora per confermare'; setTimeout(()=>{b.dataset.c='';b.textContent='Elimina';},3000); return; }
   b.dataset.c=''; b.textContent='Elimina';
-  const n=label(editing); await store.del(editing.id); await reload(); closeSheets(); toast('Eliminata: '+n);
+  const c=editing, n=label(c); closeSheets(); await deleteCow(c); toast('Eliminata: '+n);
 };
 
-function openArchive(){
+async function openArchive(){
   closeSheets();
   const L=$('aList');
   if(!cows.length) L.innerHTML='<div class="empty">Nessuna vacca registrata. Usa "Nuova vacca".</div>';
   else{ L.innerHTML=''; for(const c of cows){ const b=document.createElement('button'); b.className='item';
     b.innerHTML=`<img class="thumb" alt=""><div><div class="n"></div><div class="m"></div></div>`;
     b.querySelector('img').src=c.thumb||''; b.querySelector('.n').textContent=label(c);
-    b.querySelector('.m').textContent=[summary(c), Math.round(c.emb.length/2)+' campioni'].filter(Boolean).join(' · ');
+    const extra = c.cloud? `${c.nFotoDorso} foto dorso · ${c.nFotoMusello} musello` : Math.round(c.emb.length/2)+' campioni';
+    b.querySelector('.m').textContent=[summary(c), extra].filter(Boolean).join(' · ');
     b.onclick=()=>openCow(c); L.appendChild(b); } }
+  $('aHint').textContent = cloud.user ? 'Archivio condiviso su Firebase: lo vedono tutti gli utenti autorizzati. Esporta crea un file di backup.'
+                                      : 'L\'archivio è salvato solo su questo telefono. Con Esporta crei un file di backup o lo passi a un altro telefono, che lo carica con Importa.';
+  $('aMigr').style.display='none';
+  if(cloud.user){ try{ const local=(await store.all()).filter(l=>!cows.some(c=>c.id===matKey(l.matricola)));
+    if(local.length){ $('aMigr').style.display='flex'; $('aMigrB').textContent=`☁︎ Carica su Firebase ${local.length} vacche salvate solo su questo telefono`;
+      $('aMigrB').onclick=async()=>{ for(const l of local){ await saveCow(Object.assign(stripRuntime(l),{id:matKey(l.matricola),nFotoDorso:0,nFotoMusello:0})); } toast('Caricate '+local.length+' vacche'); openArchive(); }; } }catch(e){} }
   openSheet('shArch');
 }
 $('aExp').onclick=async()=>{
@@ -422,41 +577,52 @@ $('aImp').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{
     const data=JSON.parse(await f.text()); if(!Array.isArray(data.vacche)) throw new Error('non è un archivio di vacche');
-    let n=0; for(const c of data.vacche){ if(c.id&&c.matricola&&Array.isArray(c.emb)){ await store.put(c); n++; } }
-    await reload(); openArchive(); toast('Importate '+n+' vacche');
+    let n=0; for(const c of data.vacche){ if(c.matricola&&Array.isArray(c.emb)){ await saveCow(Object.assign({},c,{id: cloud.user? matKey(c.matricola) : (c.id||matKey(c.matricola))})); n++; } }
+    openArchive(); toast('Importate '+n+' vacche');
   }catch(err){ toast('Import non riuscito: '+err.message); }
 };
 
 function openSettings(){
   closeSheets();
-  $('sInfo').innerHTML=`Versione <b>${APP_VERSION}</b> del ${APP_DATE}<br>Vacche in archivio: <b>${cows.length}</b><br>Tempo di calcolo: <b>${inferMs?Math.round(inferMs)+' ms':'—'}</b>`;
+  const cl = !cloud.on ? 'Firebase: <b>non configurato</b> (archivio solo su questo telefono)'
+           : `Account: <b>${cloud.user?cloud.user.email:'—'}</b><br>Firebase: <b>${cloud.pending? cloud.pending+' invii in corso' : (navigator.onLine?'sincronizzato':'senza rete, invio appena torna')}</b>`;
+  $('sInfo').innerHTML=`Versione <b>${APP_VERSION}</b> del ${APP_DATE}<br>Vacche in archivio: <b>${cows.length}</b><br>${cl}<br>Tempo di calcolo: <b>${inferMs?Math.round(inferMs)+' ms':'—'}</b>`;
   $('sThr').value=settings.thr; $('sThrV').textContent=Number(settings.thr).toFixed(2); $('sDbg').checked=settings.debug;
+  $('sOutW').style.display=cloud.user?'flex':'none';
   openSheet('shSet');
 }
 $('sThr').oninput=e=>{ settings.thr=Number(e.target.value); $('sThrV').textContent=settings.thr.toFixed(2); saveSettings(); };
-$('sReset').onclick=()=>{ settings.thr=0.35; settings.debug=false; saveSettings(); openSettings(); };
 $('sDbg').onchange=e=>{ settings.debug=e.target.checked; saveSettings(); };
+$('sReset').onclick=()=>{ settings.thr=0.35; settings.debug=false; saveSettings(); openSettings(); };
 $('sFlip').onclick=async()=>{ facing=facing==='environment'?'user':'environment'; closeSheets(); await startCamera(); };
+$('sOut').onclick=async()=>{ if(cloud.pending){ toast('Aspetta che finiscano gli invii prima di uscire',3500); return; } await FB.signOut(cloud.auth); location.reload(); };
 
 $('bNew').onclick=()=>startCapture();
 $('bArch').onclick=openArchive;
 $('bSet').onclick=openSettings;
-setInterval(()=>{ $('info').textContent=cows.length+(cows.length===1?' vacca':' vacche'); },1000);
+setInterval(updInfo,2000);
 
 /* ================= avvio ================= */
 async function init(){
   try{ const last=localStorage.getItem('vacche-versione'); if(last && last!==APP_VERSION) toast('App aggiornata alla versione '+APP_VERSION,3500); localStorage.setItem('vacche-versione',APP_VERSION); }catch(e){}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('Questo browser non dà accesso alla fotocamera. Apri la pagina in Safari tramite https.'); return; }
-  try{ await store.open(); await reload(); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }
+  try{ await store.open(); if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }
   catch(e){ msg('Archivio non disponibile: '+e.message); return; }
+  if(initCloud()){
+    msg('Collegamento a Firebase…');
+    const u=await waitAuth();
+    if(!u){ msg(null); await login(); }
+    msg('Carico l\'archivio…'); await subscribeCows();
+  } else await reloadLocal();
+  updInfo();
   try{ msg('Carico il modello (la prima volta servono alcuni secondi)…'); await loadModel(); }
   catch(e){ console.error(e); msg('Errore nel caricare il modello: '+(e.message||e)); return; }
   msg('Pronto · versione '+APP_VERSION); $('start').style.display='block';
   $('start').onclick=async()=>{ $('start').style.display='none'; msg('Avvio la fotocamera…');
     if(await startCamera()){ msg(null); drawLoop(); recognitionLoop(); } };
 }
-// per le prove automatiche: calcola l'impronta di un'immagine
-window.__vacche={ embedImage: async(url,rot=false)=>{ const im=new Image(); im.src=url; await im.decode(); return Array.from(await embed(prepare(im,0,0,im.naturalWidth,im.naturalHeight,rot))); }, state:()=>({kind:state.kind, cow:state.cow&&state.cow.matricola, d:state.d}) };
+window.__vacche={ embedImage: async(url,rot=false)=>{ const im=new Image(); im.src=url; await im.decode(); return Array.from(await embed(prepare(im,0,0,im.naturalWidth,im.naturalHeight,rot))); },
+  state:()=>({kind:state.kind, cow:state.cow&&state.cow.matricola, d:state.d}), cloud:()=>({on:cloud.on,user:cloud.user&&cloud.user.email,pending:cloud.pending,cows:cows.length}) };
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 init();
 })();

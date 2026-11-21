@@ -4,7 +4,7 @@
 importScripts('version.js');
 const CACHE = 'riconosci-vacche-' + APP_VERSION;
 const FILES = [
-  './', 'index.html', 'version.js', 'manifest.json',
+  './', 'index.html', 'version.js', 'manifest.json', 'firebase-config.js', 'firebase-bundle.js',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'ort/ort.wasm.min.js', 'ort/ort-wasm-simd-threaded.mjs', 'ort/ort-wasm-simd-threaded.wasm',
   'models/frisona_reid.onnx'
