@@ -715,7 +715,13 @@ async function init(){
 }
 window.__vacche={ embedImage: async(url,rot=false)=>{ const im=new Image(); im.src=url; await im.decode(); return Array.from(await embed(prepare(im,0,0,im.naturalWidth,im.naturalHeight,rot))); },
   state:()=>({kind:state.kind, cow:state.cow&&state.cow.matricola, d:state.d}), cloud:()=>({on:cloud.on,user:cloud.user&&cloud.user.email,pending:cloud.pending,cows:cows.length}) };
-if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
+  // l'indirizzo cambia a ogni versione: il telefono installa subito la versione nuova
+  navigator.serviceWorker.register('sw.js?v='+APP_VERSION,{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+  let reloaded=false; const hadController=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(reloaded||!hadController) return; reloaded=true;
+    if(!session||(!capture&&!muzzle&&!sheetOpen)) location.reload(); else toast('Aggiornamento scaricato: riapri l\'app per usarlo',4000); });
+}
 init();
 })();
 </script>
