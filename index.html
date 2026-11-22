@@ -138,6 +138,8 @@
   <h2><span>Archivio</span><button class="x" data-close>×</button></h2>
   <div class="list" id="aList"></div>
   <div class="acts" id="aMigr" style="display:none"><button class="b pri" id="aMigrB"></button></div>
+  <div class="acts" id="aDsW" style="display:none"><button class="b pri" id="aDs">📦 Esporta dataset (foto + dati)</button></div>
+  <p class="hint" id="aDsHint" style="display:none">Crea un file ZIP con tutte le foto su Firebase, divise per vacca, i ritagli del dorso e del musello e le tabelle vacche.csv e foto.csv.</p>
   <div class="acts">
     <button class="b" id="aExp">⬆︎ Esporta</button>
     <label class="b" style="text-align:center;margin:0;color:#fff;font-size:15px">⬇︎ Importa<input type="file" accept="application/json,.json" class="file" id="aImp"></label>
@@ -561,6 +563,7 @@ async function openArchive(){
   $('aHint').textContent = cloud.user ? 'Archivio condiviso su Firebase: lo vedono tutti gli utenti autorizzati. Esporta crea un file di backup.'
                                       : 'L\'archivio è salvato solo su questo telefono. Con Esporta crei un file di backup o lo passi a un altro telefono, che lo carica con Importa.';
   $('aMigr').style.display='none';
+  $('aDsW').style.display=cloud.user?'flex':'none'; $('aDsHint').style.display=cloud.user?'block':'none';
   if(cloud.user){ try{ const local=(await store.all()).filter(l=>!cows.some(c=>c.id===matKey(l.matricola)));
     if(local.length){ $('aMigr').style.display='flex'; $('aMigrB').textContent=`☁︎ Carica su Firebase ${local.length} vacche salvate solo su questo telefono`;
       $('aMigrB').onclick=async()=>{ for(const l of local){ await saveCow(Object.assign(stripRuntime(l),{id:matKey(l.matricola),nFotoDorso:0,nFotoMusello:0})); } toast('Caricate '+local.length+' vacche'); openArchive(); }; } }catch(e){} }
@@ -581,6 +584,95 @@ $('aImp').onchange=async e=>{
     openArchive(); toast('Importate '+n+' vacche');
   }catch(err){ toast('Import non riuscito: '+err.message); }
 };
+
+/* ================= esportazione del dataset (ZIP) ================= */
+const CRC_T=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c= c&1? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u8){ let c=0xFFFFFFFF; for(let i=0;i<u8.length;i++) c=CRC_T[(c^u8[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+// ZIP senza compressione (le JPEG sono già compresse): file locali + directory centrale
+function makeZip(files){
+  const enc=new TextEncoder(), parts=[], central=[]; let off=0;
+  const d=new Date(), dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF, dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  for(const f of files){
+    const name=enc.encode(f.name), data=f.data, crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+    h.setUint16(10,dt,true); h.setUint16(12,dd,true); h.setUint32(14,crc,true); h.setUint32(18,data.length,true); h.setUint32(22,data.length,true);
+    h.setUint16(26,name.length,true); h.setUint16(28,0,true);
+    parts.push(h.buffer,name,data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true);
+    c.setUint16(12,dt,true); c.setUint16(14,dd,true); c.setUint32(16,crc,true); c.setUint32(20,data.length,true); c.setUint32(24,data.length,true);
+    c.setUint16(28,name.length,true); c.setUint32(42,off,true);
+    central.push(c.buffer,name);
+    off+=30+name.length+data.length;
+  }
+  const csize=central.reduce((a,b)=>a+(b.byteLength||b.length),0);
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,csize,true); e.setUint32(16,off,true);
+  return new Blob([...parts,...central,e.buffer],{type:'application/zip'});
+}
+const csvCell=v=>{ const s=v==null?'':String(v); return /[;"\n]/.test(s)? '"'+s.replace(/"/g,'""')+'"' : s; };
+const toCsv=rows=>'\ufeff'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+const safe=s=>String(s||'').replace(/[^A-Za-z0-9_-]+/g,'_');
+async function cropJpeg(dataUrl,r){
+  const im=new Image(); im.src=dataUrl; await im.decode();
+  const c=document.createElement('canvas'); c.width=Math.max(1,r.w); c.height=Math.max(1,r.h);
+  c.getContext('2d').drawImage(im,r.x,r.y,r.w,r.h,0,0,r.w,r.h);
+  const b=await new Promise(res=>c.toBlob(res,'image/jpeg',0.9)); return new Uint8Array(await b.arrayBuffer());
+}
+let exporting=false;
+async function exportDataset(){
+  if(exporting||!cloud.user) return; exporting=true;
+  const btn=$('aDs'), setB=t=>btn.textContent=t; btn.disabled=true;
+  try{
+    if(!navigator.onLine) toast('Senza rete esporto solo le foto già presenti sul telefono',3500);
+    setB('Leggo le foto da Firebase…');
+    const snap=await FB.getDocs(FB.collection(cloud.db,'foto'));
+    const docs=snap.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>String(a.matricola).localeCompare(String(b.matricola),'it',{numeric:true})||String(a.scattata).localeCompare(String(b.scattata)));
+    if(!docs.length){ toast('Nessuna foto su Firebase da esportare'); return; }
+    const day=new Date().toISOString().slice(0,10), root='dataset-vacche-'+day+'/', enc=new TextEncoder();
+    const files=[], fotoRows=[['file','ritaglio','matricola','tipo','sessione','ordine','scattata','autore','larghezza','altezza','ritaglio_x','ritaglio_y','ritaglio_l','ritaglio_a','versione_app','id']];
+    let i=0;
+    for(const f of docs){
+      i++; if(i%3===0||i===docs.length) setB(`Preparo le foto ${i}/${docs.length}…`);
+      if(!f.jpeg) continue;
+      const base=`${safe(f.sessione)}_${String(f.ordine||0).padStart(2,'0')}_${f.id}`, dir=`${safe(f.matricola)}/${f.tipo||'altro'}/`;
+      const path='foto/'+dir+base+'.jpg';
+      files.push({name:root+path, data:bytesFromB64(f.jpeg.split(',')[1])});
+      let cpath='';
+      if(f.ritaglio&&f.ritaglio.w){ try{ cpath='ritagli/'+dir+base+'.jpg'; files.push({name:root+cpath, data:await cropJpeg(f.jpeg,f.ritaglio)}); }catch(e){ cpath=''; } }
+      const r=f.ritaglio||{};
+      fotoRows.push([path,cpath,f.matricola,f.tipo,f.sessione,f.ordine,f.scattata,f.autore,f.w,f.h,r.x,r.y,r.w,r.h,f.versioneApp,f.id]);
+    }
+    const vRows=[['matricola','nome','data_nascita','ultimo_parto','foto_dorso','foto_musello','impronte','altre_informazioni','note']];
+    cows.forEach(c=>vRows.push([c.matricola,c.nome,c.nascita,c.parto,docs.filter(f=>f.matricola===c.matricola&&f.tipo==='dorso').length,docs.filter(f=>f.matricola===c.matricola&&f.tipo==='musello').length,c.emb.length,(c.extra||'').replace(/\n/g,' | '),c.note]));
+    files.push({name:root+'vacche.csv', data:enc.encode(toCsv(vRows))});
+    files.push({name:root+'foto.csv', data:enc.encode(toCsv(fotoRows))});
+    files.push({name:root+'vacche.json', data:enc.encode(JSON.stringify({app:'riconosci-vacche',versione:APP_VERSION,esportato:new Date().toISOString(),vacche:cows.map(stripRuntime)}))});
+    files.push({name:root+'LEGGIMI.txt', data:enc.encode(
+`Dataset Riconosci Vacche - esportato il ${new Date().toLocaleString('it-IT')} dalla versione ${APP_VERSION} (${cloud.user.email})
+
+foto/<matricola>/<tipo>/   foto intere come scattate (lato lungo max ${PHOTO_MAX} px)
+ritagli/<matricola>/<tipo>/ solo il riquadro guida: dorso (2:1) o musello (quadrato)
+foto.csv                   una riga per foto: matricola, tipo, sessione, data, autore, riquadro in pixel
+vacche.csv                 una riga per vacca con il numero di foto
+vacche.json                schede complete con le impronte (128 valori ciascuna, ognuna anche ruotata di 180 gradi)
+
+Il nome dei file è sessione_ordine_id: le foto della stessa sessione sono state scattate di seguito,
+sessioni diverse = momenti diversi (utile per separare addestramento e verifica).
+`)});
+    setB('Creo il file ZIP…');
+    const blob=makeZip(files), name='dataset-vacche-'+day+'.zip';
+    const mb=(blob.size/1048576).toFixed(1);
+    const file=new File([blob],name,{type:'application/zip'});
+    let shared=false;
+    try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'Dataset vacche'}); shared=true; } }catch(e){ if(e.name==='AbortError'){ toast('Esportazione annullata'); return; } }
+    if(!shared){ const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=name; document.body.appendChild(a); a.click(); a.remove(); }
+    toast(`Dataset pronto: ${docs.length} foto, ${mb} MB`,3500);
+  }catch(e){ console.error(e); toast('Esportazione non riuscita: '+(e.code||e.message),4000); }
+  finally{ exporting=false; btn.disabled=false; setB('📦 Esporta dataset (foto + dati)'); }
+}
+$('aDs').onclick=exportDataset;
 
 function openSettings(){
   closeSheets();

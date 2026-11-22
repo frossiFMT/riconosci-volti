@@ -1,4 +1,4 @@
-# Riconosci Vacche — versione 3.1 (21/11/2026)
+# Riconosci Vacche — versione 3.2 (22/11/2026)
 
 Web app per riconoscere le singole vacche **Frisone** dal disegno del mantello.
 Registri una vacca (matricola, nome, date, note). Quando la inquadri di nuovo,
@@ -72,6 +72,7 @@ l'iPhone scarica la versione nuova e mostra "App aggiornata alla versione …".
 - `ort/`: ONNX Runtime Web 1.31.1 (Microsoft, MIT) per eseguire la rete nel browser.
 
 ## Storico versioni
+- **3.2** (22/11/2026): Archivio › Esporta dataset, un file ZIP con tutte le foto da Firebase (intere e ritagliate, divise per matricola e tipo) più foto.csv, vacche.csv e vacche.json.
 - **3.1** (21/11/2026): archivio condiviso su Firebase con accesso tramite account, invio delle foto del dorso e del musello, modalità di acquisizione per la raccolta dei dati.
 - **3.0** (21/11/2026): riconoscimento delle vacche Frisone dal mantello; numero di versione a schermo.
 - 2.0 (20/11/2026): Riconosci Volti, correzione per Safari su iPhone.
