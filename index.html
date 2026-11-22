@@ -138,8 +138,8 @@
   <h2><span>Archivio</span><button class="x" data-close>×</button></h2>
   <div class="list" id="aList"></div>
   <div class="acts" id="aMigr" style="display:none"><button class="b pri" id="aMigrB"></button></div>
-  <div class="acts" id="aDsW" style="display:none"><button class="b pri" id="aDs">📦 Esporta dataset (foto + dati)</button></div>
-  <p class="hint" id="aDsHint" style="display:none">Crea un file ZIP con tutte le foto su Firebase, divise per vacca, i ritagli del dorso e del musello e le tabelle vacche.csv e foto.csv.</p>
+  <div class="acts" id="aDsW" style="display:none"><button class="b pri" id="aDs">📦 Esporta dataset (foto + dati)</button><button class="b" id="aClean">🧹 Elimina foto senza vacca</button></div>
+  <p class="hint" id="aDsHint" style="display:none">Esporta dataset crea un file ZIP con le foto delle vacche in archivio, divise per vacca, i ritagli del dorso e del musello e le tabelle vacche.csv e foto.csv. "Elimina foto senza vacca" cancella da Firebase le foto rimaste di vacche eliminate.</p>
   <div class="acts">
     <button class="b" id="aExp">⬆︎ Esporta</button>
     <label class="b" style="text-align:center;margin:0;color:#fff;font-size:15px">⬇︎ Importa<input type="file" accept="application/json,.json" class="file" id="aImp"></label>
@@ -274,8 +274,14 @@ async function saveCow(c){
   else { await store.put(stripRuntime(c)); await reloadLocal(); }
 }
 async function deleteCow(c){
-  if(cloud.user){ track(FB.deleteDoc(FB.doc(cloud.db,'vacche',c.id)),'eliminazione').catch(()=>{}); }
-  else { await store.del(c.id); await reloadLocal(); }
+  if(!cloud.user){ await store.del(c.id); await reloadLocal(); return 0; }
+  track(FB.deleteDoc(FB.doc(cloud.db,'vacche',c.id)),'eliminazione').catch(()=>{});
+  // cancella anche tutte le foto della vacca
+  let n=0;
+  try{ const snap=await FB.getDocs(FB.query(FB.collection(cloud.db,'foto'),FB.where('vacca','==',c.id)));
+    snap.docs.forEach(d=>{ n++; track(FB.deleteDoc(FB.doc(cloud.db,'foto',d.id)),'foto').catch(()=>{}); }); }
+  catch(e){ console.error(e); toast('Scheda eliminata, ma non sono riuscito a cancellare le foto: '+(e.code||e.message),4500); }
+  return n;
 }
 function stripRuntime(c){ const o=Object.assign({},c); delete o._emb; delete o.cloud; return o; }
 const label = c => 'Vacca '+c.matricola+(c.nome?' – '+c.nome:'');
@@ -547,7 +553,7 @@ $('cDel').onclick=async()=>{
   const b=$('cDel');
   if(b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='Tocca ancora per confermare'; setTimeout(()=>{b.dataset.c='';b.textContent='Elimina';},3000); return; }
   b.dataset.c=''; b.textContent='Elimina';
-  const c=editing, n=label(c); closeSheets(); await deleteCow(c); toast('Eliminata: '+n);
+  const c=editing, n=label(c); closeSheets(); toast('Elimino '+n+'…'); const k=await deleteCow(c); toast('Eliminata: '+n+(k?' e le sue '+k+' foto':''));
 };
 
 async function openArchive(){
@@ -628,7 +634,10 @@ async function exportDataset(){
     if(!navigator.onLine) toast('Senza rete esporto solo le foto già presenti sul telefono',3500);
     setB('Leggo le foto da Firebase…');
     const snap=await FB.getDocs(FB.collection(cloud.db,'foto'));
-    const docs=snap.docs.map(d=>Object.assign({id:d.id},d.data())).sort((a,b)=>String(a.matricola).localeCompare(String(b.matricola),'it',{numeric:true})||String(a.scattata).localeCompare(String(b.scattata)));
+    const ids=new Set(cows.map(c=>c.id));
+    const all=snap.docs.map(d=>Object.assign({id:d.id},d.data())), orphans=all.filter(f=>!ids.has(f.vacca)).length;
+    if(orphans) toast(orphans+' foto di vacche eliminate escluse dal dataset',3500);
+    const docs=all.filter(f=>ids.has(f.vacca)).sort((a,b)=>String(a.matricola).localeCompare(String(b.matricola),'it',{numeric:true})||String(a.scattata).localeCompare(String(b.scattata)));
     if(!docs.length){ toast('Nessuna foto su Firebase da esportare'); return; }
     const day=new Date().toISOString().slice(0,10), root='dataset-vacche-'+day+'/', enc=new TextEncoder();
     const files=[], fotoRows=[['file','ritaglio','matricola','tipo','sessione','ordine','scattata','autore','larghezza','altezza','ritaglio_x','ritaglio_y','ritaglio_l','ritaglio_a','versione_app','id']];
@@ -673,6 +682,25 @@ sessioni diverse = momenti diversi (utile per separare addestramento e verifica)
   finally{ exporting=false; btn.disabled=false; setB('📦 Esporta dataset (foto + dati)'); }
 }
 $('aDs').onclick=exportDataset;
+let cleanFound=null;
+$('aClean').onclick=async()=>{
+  const b=$('aClean'); if(!cloud.user||b.disabled) return;
+  if(cleanFound){ // secondo tocco: conferma
+    const list=cleanFound; cleanFound=null; b.disabled=true; b.textContent='Elimino '+list.length+' foto…';
+    list.forEach(id=>track(FB.deleteDoc(FB.doc(cloud.db,'foto',id)),'foto').catch(()=>{}));
+    toast('Eliminate '+list.length+' foto senza vacca',3500); b.disabled=false; b.textContent='🧹 Elimina foto senza vacca'; return;
+  }
+  b.disabled=true; b.textContent='Cerco le foto senza vacca…';
+  try{
+    const snap=await FB.getDocs(FB.collection(cloud.db,'foto')), ids=new Set(cows.map(c=>c.id));
+    const orf=snap.docs.filter(d=>!ids.has(d.data().vacca)), mats=[...new Set(orf.map(d=>d.data().matricola))];
+    b.disabled=false;
+    if(!orf.length){ b.textContent='🧹 Elimina foto senza vacca'; toast('Nessuna foto senza vacca: tutto in ordine'); return; }
+    cleanFound=orf.map(d=>d.id);
+    b.textContent=`Tocca ancora per eliminare ${orf.length} foto (${mats.join(', ')})`;
+    setTimeout(()=>{ if(cleanFound){ cleanFound=null; b.textContent='🧹 Elimina foto senza vacca'; } },8000);
+  }catch(e){ b.disabled=false; b.textContent='🧹 Elimina foto senza vacca'; toast('Ricerca non riuscita: '+(e.code||e.message),4000); }
+};
 
 function openSettings(){
   closeSheets();
